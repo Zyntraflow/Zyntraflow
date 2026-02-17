@@ -1,0 +1,44 @@
+set -eu
+
+fail() {
+  echo "ERROR: $1" >&2
+  exit 1
+}
+
+if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+  fail ".env is tracked by git. Run: git rm --cached .env"
+fi
+
+if git diff --cached --name-only | grep -Eq '^\.env$'; then
+  fail ".env is staged. Run: git rm --cached .env"
+fi
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+if [ -z "$staged_files" ]; then
+  exit 0
+fi
+
+old_ifs=$IFS
+IFS='
+'
+for file in $staged_files; do
+  if [ -z "$file" ]; then
+    continue
+  fi
+
+  if ! git show ":$file" | grep -Iq .; then
+    continue
+  fi
+
+  secret_match="$(git show ":$file" | grep -IEn '(^|[^a-fA-F0-9])(0x)?[a-fA-F0-9]{64}([^a-fA-F0-9]|$)' | head -n 1 || true)"
+  if [ -n "$secret_match" ]; then
+    fail "Potential private key pattern found in staged file '$file' at line ${secret_match%%:*}. Move secrets to local .env"
+  fi
+
+  if [ "$file" != "src/config.ts" ] && [ "$file" != ".env.example" ] && [ "$file" != ".husky/pre-commit" ]; then
+    if git show ":$file" | grep -IEq '\bWALLET_PRIVATE_KEY\b|\bPRIVATE_KEY\b'; then
+      fail "Sensitive marker found in '$file'. Keep PRIVATE_KEY references only in src/config.ts (or placeholders in .env.example)."
+    fi
+  fi
+done
+IFS=$old_ifs
