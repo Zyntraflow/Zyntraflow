@@ -1,7 +1,14 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { incrementMetricCounter } from "@/lib/metricsStore";
 
 export async function GET(): Promise<Response> {
+  try {
+    await incrementMetricCounter("feedLatestHits");
+  } catch {
+    // Metrics are best-effort and must not block feed reads.
+  }
+
   const latestPath = path.join(process.cwd(), "public", "public-feed", "latest.signed.json");
 
   try {

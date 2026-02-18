@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { incrementMetricCounter } from "@/lib/metricsStore";
 
 type OperatorHealth = {
   timestamp: string;
@@ -18,6 +19,12 @@ const defaultHealth = (): OperatorHealth => ({
 });
 
 export async function GET(): Promise<Response> {
+  try {
+    await incrementMetricCounter("healthHits");
+  } catch {
+    // Metrics are best-effort and must not block health responses.
+  }
+
   const healthPath = path.join(process.cwd(), "public", "public-feed", "operator-health.json");
 
   let health = defaultHealth();

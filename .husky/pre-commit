@@ -13,6 +13,14 @@ if git diff --cached --name-only | grep -Eq '^\.env$'; then
   fail ".env is staged. Run: git rm --cached .env"
 fi
 
+if git ls-files --error-unmatch .env.operator >/dev/null 2>&1; then
+  fail ".env.operator is tracked by git. Run: git rm --cached .env.operator"
+fi
+
+if git diff --cached --name-only | grep -Eq '^\.env\.operator$'; then
+  fail ".env.operator is staged. Remove it from staging."
+fi
+
 staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
 if [ -z "$staged_files" ]; then
   exit 0

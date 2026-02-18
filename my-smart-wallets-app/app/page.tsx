@@ -7,6 +7,7 @@ import LoginCard from "./components/login-card";
 import Header from "./components/header";
 import LearnMore from "./components/learn-more";
 import PublicFeedCard from "./components/public-feed-card";
+import Link from "next/link";
 
 export default function Home() {
   const signerStatus = useSignerStatus();
@@ -16,6 +17,11 @@ export default function Home() {
       <Header />
       <div className="bg-bg-main bg-cover bg-center bg-no-repeat h-[calc(100vh-4rem)]">
         <main className="container mx-auto px-4 py-8 h-full">
+          <div className="mb-4 text-sm">
+            <Link className="underline underline-offset-4" href="/launch">
+              Open Launch Guide
+            </Link>
+          </div>
           {signerStatus.isConnected ? (
             <div className="grid gap-8 md:grid-cols-[1fr_2fr]">
               <div className="flex flex-col gap-8">

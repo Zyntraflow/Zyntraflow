@@ -27,6 +27,7 @@ export type AppConfig = {
   IPFS_UPLOAD_URL?: string;
   IPFS_AUTH_TOKEN?: string;
   ENABLE_PUBLIC_SUMMARY_PUBLISH: boolean;
+  ENABLE_PUBLIC_METRICS: boolean;
   ACCESS_PASS_MINT_PRICE_WEI?: string;
   ACCESS_PASS_ACCEPTED_CHAINS: number[];
   ACCESS_PASS_CONTRACTS_BY_CHAIN: Record<number, string>;
@@ -77,7 +78,12 @@ const parseCsvEnv = (name: "RPC_FALLBACK_URLS" | "ACCESS_PASS_ACCEPTED_CHAINS"):
 };
 
 const parseBooleanEnv = (
-  name: "ENABLE_REPORT_PERSISTENCE" | "ENABLE_PREMIUM_MODE" | "ENABLE_PUBLIC_SUMMARY_PUBLISH" | "OPERATOR_ENABLE",
+  name:
+    | "ENABLE_REPORT_PERSISTENCE"
+    | "ENABLE_PREMIUM_MODE"
+    | "ENABLE_PUBLIC_SUMMARY_PUBLISH"
+    | "ENABLE_PUBLIC_METRICS"
+    | "OPERATOR_ENABLE",
   fallback: boolean,
 ): boolean => {
   const value = process.env[name];
@@ -299,6 +305,7 @@ export const loadConfig = (): AppConfig => {
     IPFS_UPLOAD_URL: parseOptionalTextEnv("IPFS_UPLOAD_URL"),
     IPFS_AUTH_TOKEN: parseOptionalTextEnv("IPFS_AUTH_TOKEN"),
     ENABLE_PUBLIC_SUMMARY_PUBLISH: parseBooleanEnv("ENABLE_PUBLIC_SUMMARY_PUBLISH", false),
+    ENABLE_PUBLIC_METRICS: parseBooleanEnv("ENABLE_PUBLIC_METRICS", false),
     ACCESS_PASS_MINT_PRICE_WEI: parseOptionalWeiEnv("ACCESS_PASS_MINT_PRICE_WEI"),
     ACCESS_PASS_ACCEPTED_CHAINS: acceptedChains,
     ACCESS_PASS_CONTRACTS_BY_CHAIN: contractsByChain,
@@ -306,7 +313,7 @@ export const loadConfig = (): AppConfig => {
     OPERATOR_ENABLE: parseBooleanEnv("OPERATOR_ENABLE", false),
     OPERATOR_MAX_TICKS: parseIntegerEnvWithDefault("OPERATOR_MAX_TICKS", 0, { min: 0 }),
     OPERATOR_JITTER_MS: parseIntegerEnvWithDefault("OPERATOR_JITTER_MS", 500, { min: 0 }),
-    RPC_MAX_CONCURRENCY: parseIntegerEnvWithDefault("RPC_MAX_CONCURRENCY", 3, { min: 1 }),
+    RPC_MAX_CONCURRENCY: parseIntegerEnvWithDefault("RPC_MAX_CONCURRENCY", 2, { min: 1 }),
     RPC_RETRY_MAX: parseIntegerEnvWithDefault("RPC_RETRY_MAX", 2, { min: 0 }),
     RPC_RETRY_BACKOFF_MS: parseIntegerEnvWithDefault("RPC_RETRY_BACKOFF_MS", 250, { min: 0 }),
     RPC_TIMEOUT_MS: parseIntegerEnvWithDefault("RPC_TIMEOUT_MS", 8000, { min: 1 }),

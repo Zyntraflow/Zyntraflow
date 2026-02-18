@@ -9,6 +9,8 @@ dist/
 build/
 coverage/
 reports/
+public-feed/
+my-smart-wallets-app/public/public-feed/
 public-feed/latest.json
 public-feed/latest.signed.json
 public-feed/operator-health.json

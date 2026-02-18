@@ -57,15 +57,18 @@ cp .env.example .env
 - `IPFS_UPLOAD_URL` (optional)
 - `IPFS_AUTH_TOKEN` (optional)
 - `ENABLE_PUBLIC_SUMMARY_PUBLISH` (`true`/`false`, default `false`)
+- `ENABLE_PUBLIC_METRICS` (`true`/`false`, default `false`)
 - `ACCESS_PASS_MINT_PRICE_WEI` (optional, used in mint instructions only)
 - `OPERATOR_MAX_TICKS` (`0` = unlimited, default `0`)
 - `OPERATOR_JITTER_MS` (tick jitter in ms, default `500`)
-- `RPC_MAX_CONCURRENCY` (scan request cap, default `3`)
+- `RPC_MAX_CONCURRENCY` (scan request cap, default `2`)
 - `RPC_RETRY_MAX` (RPC retries per call, default `2`)
 - `RPC_RETRY_BACKOFF_MS` (retry backoff base, default `250`)
 - `RPC_TIMEOUT_MS` (RPC timeout in ms, default `8000`)
 
 Never commit `.env`.
+
+Base recommended: set `TARGET_NETWORK=base` and `ACCESS_PASS_CHAIN_ID=8453` for Base-first launch.
 
 ## Global Users Quickstart
 
@@ -85,6 +88,18 @@ Premium mode:
 Premium package decrypt:
 1. Fetch package from `/api/premium/<reportHash>/<address>`
 2. Decrypt locally with your signature-derived key
+
+One-command operator start:
+1. `cp .env.operator.example .env.operator`
+2. Fill local values in `.env.operator`
+3. `npm run operator`
+
+VPS checklist:
+1. Use a dedicated non-root user.
+2. Keep `.env` and `.env.operator` on disk only, never in git.
+3. Enable restart policy (`docker compose up -d` + `restart: unless-stopped`).
+4. Monitor `/api/health` and disk space for `reports/`.
+5. Rotate operator signer and API tokens periodically.
 
 ### Operator Environment
 
@@ -236,11 +251,23 @@ When running `my-smart-wallets-app`, public feed data is available via:
 - `/api/feed/latest`
 - `/api/feed/history?date=YYYY-MM-DD`
 - `/api/health`
+- `/api/public-config`
+- `/api/metrics` (only when `ENABLE_PUBLIC_METRICS=true`)
 
 Encrypted premium packages can be fetched by:
 - `/api/premium/<reportHash>/<address>`
 
 Premium payloads are encrypted and user-bound. Users fetch package JSON then decrypt locally with their signature-derived key.
+
+Troubleshooting:
+- If `/api/health` shows `lastTickOk: false`, check operator logs and verify RPC env values in `.env.operator`.
+- If `/api/feed/latest` is empty, run a bounded operator tick and recheck:
+  - `OPERATOR_MAX_TICKS=1 npm run operator -- --operator true --interval 5`
+
+Security reminders:
+- Never share wallet signatures publicly.
+- Never commit `.env` or `.env.operator`.
+- Keep all scanner behavior read-only in this branch.
 
 ## Production Deployment (Docker)
 

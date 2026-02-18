@@ -1,6 +1,7 @@
 import { existsSync, promises as fs } from "fs";
 import path from "path";
 import { getAddress } from "ethers";
+import { incrementMetricCounter } from "@/lib/metricsStore";
 
 type IpCounter = {
   windowStart: number;
@@ -46,6 +47,12 @@ export async function GET(
   request: Request,
   context: { params: { reportHash: string; address: string } },
 ): Promise<Response> {
+  try {
+    await incrementMetricCounter("premiumPullHits");
+  } catch {
+    // Metrics are best-effort and must not block premium package pulls.
+  }
+
   const ip = getClientIp(request);
   if (!isIpAllowed(ip)) {
     return Response.json({ message: "Too many requests. Try again shortly." }, { status: 429 });
