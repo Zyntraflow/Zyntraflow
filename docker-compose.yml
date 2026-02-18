@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  operator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.operator
+    volumes:
+      - ./reports:/app/reports
+      - ./public-feed:/app/public-feed
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./my-smart-wallets-app
+      dockerfile: Dockerfile
+    depends_on:
+      - operator
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./public-feed:/app/public/public-feed
+      - ./reports:/app/reports
+    restart: unless-stopped

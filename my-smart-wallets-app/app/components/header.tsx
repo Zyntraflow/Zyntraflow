@@ -12,12 +12,13 @@ export default function Header() {
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Image
-            src="/smart-wallets.svg"
-            alt="Smart Wallets"
-            width={200}
-            height={26}
-            className="h-6 w-auto"
+            src="/logo.svg"
+            alt="Zyntraflow"
+            width={48}
+            height={48}
+            className="h-10 w-10 rounded-md"
           />
+          <span className="font-semibold">Zyntraflow</span>
         </div>
 
         {isConnected && (

@@ -17,6 +17,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tanstack/react-query": "^5.50.1",
+    "@wagmi/core": "^2.17.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
@@ -25,8 +26,10 @@
     "react-dom": "^18",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "viem": "2.30.0",
-    "wagmi": "2.15.4"
+    "tr46": "^6.0.0",
+    "viem": "^2.46.2",
+    "wagmi": "^2.15.4",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@types/node": "^20",

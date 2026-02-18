@@ -6,6 +6,7 @@ import NftMintCard from "./components/nft-mint-card";
 import LoginCard from "./components/login-card";
 import Header from "./components/header";
 import LearnMore from "./components/learn-more";
+import PublicFeedCard from "./components/public-feed-card";
 
 export default function Home() {
   const signerStatus = useSignerStatus();
@@ -20,12 +21,16 @@ export default function Home() {
               <div className="flex flex-col gap-8">
                 <UserInfoCard />
                 <LearnMore />
+                <PublicFeedCard />
               </div>
               <NftMintCard />
             </div>
           ) : (
-            <div className="flex justify-center items-center h-full pb-[4rem]">
+            <div className="flex flex-col justify-center items-center h-full pb-[4rem] gap-6">
               <LoginCard />
+              <div className="w-full max-w-xl">
+                <PublicFeedCard />
+              </div>
             </div>
           )}
         </main>

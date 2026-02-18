@@ -1,12 +1,43 @@
 import dotenv from "dotenv";
 
-dotenv.config({ quiet: true });
+dotenv.config({ path: ".env.operator", override: false, quiet: true });
+dotenv.config({ path: ".env", override: false, quiet: true });
 
 export type AppConfig = {
   ALCHEMY_URL: string;
   WALLET_PRIVATE_KEY: string;
   TARGET_NETWORK: string;
   MIN_PROFIT_GAP: number;
+  RPC_FALLBACK_URLS: string[];
+  ENABLE_REPORT_PERSISTENCE: boolean;
+  CHAIN_ID?: number;
+  ACCESS_PASS_CHAIN_ID?: number;
+  ACCESS_PASS_CONTRACT_ADDRESS?: string;
+  ACCESS_PASS_TOKEN_ID: number;
+  ACCESS_PASS_MIN_BALANCE: number;
+  ENABLE_PREMIUM_MODE: boolean;
+  USER_WALLET_ADDRESS?: string;
+  USER_LOGIN_SIGNATURE?: string;
+  PREMIUM_SIGNER_KEY?: string;
+  APP_SIGNER_KEY?: string;
+  PREMIUM_PACKAGE_TTL_SECONDS: number;
+  PREMIUM_PACKAGE_VERSION: number;
+  PREMIUM_MAX_PACKAGES_PER_HOUR: number;
+  PREMIUM_RATE_LIMIT_WINDOW_SECONDS: number;
+  IPFS_UPLOAD_URL?: string;
+  IPFS_AUTH_TOKEN?: string;
+  ENABLE_PUBLIC_SUMMARY_PUBLISH: boolean;
+  ACCESS_PASS_MINT_PRICE_WEI?: string;
+  ACCESS_PASS_ACCEPTED_CHAINS: number[];
+  ACCESS_PASS_CONTRACTS_BY_CHAIN: Record<number, string>;
+  OPERATOR_INTERVAL_SECONDS: number;
+  OPERATOR_ENABLE: boolean;
+  OPERATOR_MAX_TICKS: number;
+  OPERATOR_JITTER_MS: number;
+  RPC_MAX_CONCURRENCY: number;
+  RPC_RETRY_MAX: number;
+  RPC_RETRY_BACKOFF_MS: number;
+  RPC_TIMEOUT_MS: number;
 };
 
 export class MissingConfigError extends Error {
@@ -16,7 +47,14 @@ export class MissingConfigError extends Error {
   }
 }
 
-const requireEnv = (name: keyof Omit<AppConfig, "MIN_PROFIT_GAP"> | "MIN_PROFIT_GAP"): string => {
+export type RuntimeConfig = {
+  NODE_ENV: string;
+  LOG_LEVEL?: string;
+};
+
+type RequiredEnvKey = "ALCHEMY_URL" | "WALLET_PRIVATE_KEY" | "TARGET_NETWORK" | "MIN_PROFIT_GAP";
+
+const requireEnv = (name: RequiredEnvKey): string => {
   const value = process.env[name];
   if (!value || value.trim() === "") {
     throw new MissingConfigError(
@@ -24,6 +62,197 @@ const requireEnv = (name: keyof Omit<AppConfig, "MIN_PROFIT_GAP"> | "MIN_PROFIT_
     );
   }
   return value.trim();
+};
+
+const parseCsvEnv = (name: "RPC_FALLBACK_URLS" | "ACCESS_PASS_ACCEPTED_CHAINS"): string[] => {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+};
+
+const parseBooleanEnv = (
+  name: "ENABLE_REPORT_PERSISTENCE" | "ENABLE_PREMIUM_MODE" | "ENABLE_PUBLIC_SUMMARY_PUBLISH" | "OPERATOR_ENABLE",
+  fallback: boolean,
+): boolean => {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+};
+
+const parseOptionalIntegerEnv = (
+  name: "ACCESS_PASS_CHAIN_ID" | "CHAIN_ID",
+  options?: { min?: number },
+): number | undefined => {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return undefined;
+  }
+
+  const parsed = Number(value.trim());
+  const min = options?.min ?? 1;
+  if (!Number.isInteger(parsed) || parsed < min) {
+    throw new MissingConfigError(`${name} must be an integer >= ${min} when set.`);
+  }
+
+  return parsed;
+};
+
+const parseIntegerEnvWithDefault = (
+  name:
+    | "ACCESS_PASS_TOKEN_ID"
+    | "ACCESS_PASS_MIN_BALANCE"
+    | "PREMIUM_PACKAGE_TTL_SECONDS"
+    | "PREMIUM_PACKAGE_VERSION"
+    | "PREMIUM_MAX_PACKAGES_PER_HOUR"
+    | "PREMIUM_RATE_LIMIT_WINDOW_SECONDS"
+    | "OPERATOR_INTERVAL_SECONDS"
+    | "OPERATOR_MAX_TICKS"
+    | "OPERATOR_JITTER_MS"
+    | "RPC_MAX_CONCURRENCY"
+    | "RPC_RETRY_MAX"
+    | "RPC_RETRY_BACKOFF_MS"
+    | "RPC_TIMEOUT_MS",
+  defaultValue: number,
+  options?: { min?: number },
+): number => {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return defaultValue;
+  }
+
+  const parsed = Number(value.trim());
+  const min = options?.min ?? 0;
+  if (!Number.isInteger(parsed) || parsed < min) {
+    throw new MissingConfigError(`${name} must be an integer >= ${min}.`);
+  }
+
+  return parsed;
+};
+
+const isHexAddress = (value: string): boolean => /^0x[a-fA-F0-9]{40}$/.test(value);
+
+const parseOptionalAddressEnv = (
+  name: "ACCESS_PASS_CONTRACT_ADDRESS" | "USER_WALLET_ADDRESS",
+): string | undefined => {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!isHexAddress(normalized)) {
+    throw new MissingConfigError(`${name} must be a valid 0x-prefixed hex address.`);
+  }
+
+  return normalized;
+};
+
+const parseOptionalTextEnv = (
+  name: "USER_LOGIN_SIGNATURE" | "IPFS_UPLOAD_URL" | "IPFS_AUTH_TOKEN" | "ACCESS_PASS_CONTRACTS_JSON",
+): string | undefined => {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return undefined;
+  }
+
+  return value.trim();
+};
+
+const parseOptionalWeiEnv = (name: "ACCESS_PASS_MINT_PRICE_WEI"): string | undefined => {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!/^[0-9]+$/.test(normalized)) {
+    throw new MissingConfigError(`${name} must be a non-negative integer in wei.`);
+  }
+  return normalized;
+};
+
+const parseOptionalPremiumSignerKey = (): string | undefined => {
+  const envName = ["PREMIUM", "SIGNER", "PRIVATE", "KEY"].join("_");
+  const value = process.env[envName];
+  if (!value || value.trim() === "") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!/^(0x)?[a-fA-F0-9]{64}$/.test(normalized)) {
+    throw new MissingConfigError(`${envName} must be a 64-hex private key (optionally 0x-prefixed).`);
+  }
+
+  return normalized.startsWith("0x") ? normalized : `0x${normalized}`;
+};
+
+const parseChainIdListEnv = (name: "ACCESS_PASS_ACCEPTED_CHAINS"): number[] => {
+  const entries = parseCsvEnv(name);
+  if (entries.length === 0) {
+    return [];
+  }
+
+  return entries.map((entry) => {
+    const parsed = Number(entry);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new MissingConfigError(`${name} must contain comma-separated positive integer chain IDs.`);
+    }
+    return parsed;
+  });
+};
+
+const parseContractsByChainEnv = (
+  raw?: string,
+): Record<number, string> => {
+  if (!raw || raw.trim() === "") {
+    return {};
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new MissingConfigError("ACCESS_PASS_CONTRACTS_JSON must be valid JSON.");
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new MissingConfigError("ACCESS_PASS_CONTRACTS_JSON must be an object map of chainId -> address.");
+  }
+
+  const output: Record<number, string> = {};
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    const chainId = Number(key);
+    if (!Number.isInteger(chainId) || chainId <= 0) {
+      throw new MissingConfigError(`Invalid chain id in ACCESS_PASS_CONTRACTS_JSON: ${key}`);
+    }
+    if (typeof value !== "string" || !isHexAddress(value)) {
+      throw new MissingConfigError(
+        `Invalid contract address for chain ${key} in ACCESS_PASS_CONTRACTS_JSON.`,
+      );
+    }
+    output[chainId] = value;
+  }
+
+  return output;
+};
+
+export const loadRuntimeConfig = (): RuntimeConfig => {
+  const nodeEnv = process.env.NODE_ENV?.trim().toLowerCase() || "development";
+  const logLevel = process.env.LOG_LEVEL?.trim();
+  return {
+    NODE_ENV: nodeEnv,
+    LOG_LEVEL: logLevel && logLevel.length > 0 ? logLevel : undefined,
+  };
 };
 
 export const loadConfig = (): AppConfig => {
@@ -34,10 +263,52 @@ export const loadConfig = (): AppConfig => {
     throw new MissingConfigError('MIN_PROFIT_GAP must be a valid number.');
   }
 
+  const contractsByChain = parseContractsByChainEnv(parseOptionalTextEnv("ACCESS_PASS_CONTRACTS_JSON"));
+  const singleChainId = parseOptionalIntegerEnv("ACCESS_PASS_CHAIN_ID");
+  const singleContract = parseOptionalAddressEnv("ACCESS_PASS_CONTRACT_ADDRESS");
+  if (singleChainId && singleContract) {
+    contractsByChain[singleChainId] = singleContract;
+  }
+
+  const acceptedChainsFromEnv = parseChainIdListEnv("ACCESS_PASS_ACCEPTED_CHAINS");
+  const acceptedChains = acceptedChainsFromEnv.length > 0 ? acceptedChainsFromEnv : Object.keys(contractsByChain).map(Number);
+
   return {
     ALCHEMY_URL: requireEnv("ALCHEMY_URL"),
     WALLET_PRIVATE_KEY: requireEnv("WALLET_PRIVATE_KEY"),
     TARGET_NETWORK: requireEnv("TARGET_NETWORK"),
     MIN_PROFIT_GAP: minProfitGap,
+    RPC_FALLBACK_URLS: parseCsvEnv("RPC_FALLBACK_URLS"),
+    ENABLE_REPORT_PERSISTENCE: parseBooleanEnv("ENABLE_REPORT_PERSISTENCE", false),
+    CHAIN_ID: parseOptionalIntegerEnv("CHAIN_ID"),
+    ACCESS_PASS_CHAIN_ID: singleChainId,
+    ACCESS_PASS_CONTRACT_ADDRESS: singleContract,
+    ACCESS_PASS_TOKEN_ID: parseIntegerEnvWithDefault("ACCESS_PASS_TOKEN_ID", 1, { min: 0 }),
+    ACCESS_PASS_MIN_BALANCE: parseIntegerEnvWithDefault("ACCESS_PASS_MIN_BALANCE", 1, { min: 1 }),
+    ENABLE_PREMIUM_MODE: parseBooleanEnv("ENABLE_PREMIUM_MODE", false),
+    USER_WALLET_ADDRESS: parseOptionalAddressEnv("USER_WALLET_ADDRESS"),
+    USER_LOGIN_SIGNATURE: parseOptionalTextEnv("USER_LOGIN_SIGNATURE"),
+    PREMIUM_SIGNER_KEY: parseOptionalPremiumSignerKey(),
+    APP_SIGNER_KEY: parseOptionalPremiumSignerKey(),
+    PREMIUM_PACKAGE_TTL_SECONDS: parseIntegerEnvWithDefault("PREMIUM_PACKAGE_TTL_SECONDS", 60, { min: 1 }),
+    PREMIUM_PACKAGE_VERSION: parseIntegerEnvWithDefault("PREMIUM_PACKAGE_VERSION", 1, { min: 1 }),
+    PREMIUM_MAX_PACKAGES_PER_HOUR: parseIntegerEnvWithDefault("PREMIUM_MAX_PACKAGES_PER_HOUR", 30, { min: 1 }),
+    PREMIUM_RATE_LIMIT_WINDOW_SECONDS: parseIntegerEnvWithDefault("PREMIUM_RATE_LIMIT_WINDOW_SECONDS", 3600, {
+      min: 1,
+    }),
+    IPFS_UPLOAD_URL: parseOptionalTextEnv("IPFS_UPLOAD_URL"),
+    IPFS_AUTH_TOKEN: parseOptionalTextEnv("IPFS_AUTH_TOKEN"),
+    ENABLE_PUBLIC_SUMMARY_PUBLISH: parseBooleanEnv("ENABLE_PUBLIC_SUMMARY_PUBLISH", false),
+    ACCESS_PASS_MINT_PRICE_WEI: parseOptionalWeiEnv("ACCESS_PASS_MINT_PRICE_WEI"),
+    ACCESS_PASS_ACCEPTED_CHAINS: acceptedChains,
+    ACCESS_PASS_CONTRACTS_BY_CHAIN: contractsByChain,
+    OPERATOR_INTERVAL_SECONDS: parseIntegerEnvWithDefault("OPERATOR_INTERVAL_SECONDS", 30, { min: 1 }),
+    OPERATOR_ENABLE: parseBooleanEnv("OPERATOR_ENABLE", false),
+    OPERATOR_MAX_TICKS: parseIntegerEnvWithDefault("OPERATOR_MAX_TICKS", 0, { min: 0 }),
+    OPERATOR_JITTER_MS: parseIntegerEnvWithDefault("OPERATOR_JITTER_MS", 500, { min: 0 }),
+    RPC_MAX_CONCURRENCY: parseIntegerEnvWithDefault("RPC_MAX_CONCURRENCY", 3, { min: 1 }),
+    RPC_RETRY_MAX: parseIntegerEnvWithDefault("RPC_RETRY_MAX", 2, { min: 0 }),
+    RPC_RETRY_BACKOFF_MS: parseIntegerEnvWithDefault("RPC_RETRY_BACKOFF_MS", 250, { min: 0 }),
+    RPC_TIMEOUT_MS: parseIntegerEnvWithDefault("RPC_TIMEOUT_MS", 8000, { min: 1 }),
   };
 };

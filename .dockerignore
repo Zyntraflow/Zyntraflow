@@ -1,0 +1,12 @@
+node_modules
+dist
+reports
+public-feed
+coverage
+.git
+.env
+.env.*
+!.env.example
+!.env.operator.example
+my-smart-wallets-app/node_modules
+my-smart-wallets-app/.next

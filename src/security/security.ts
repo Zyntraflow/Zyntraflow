@@ -9,7 +9,19 @@ type SecretMatch = {
   lineNumber: number;
 };
 
-const EXCLUDED_DIRECTORIES = new Set([".git", "node_modules", "dist", "build", "coverage"]);
+const EXCLUDED_DIRECTORIES = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  "reports",
+  "public-feed",
+  ".next",
+  "artifacts",
+  "cache",
+  "typechain-types",
+]);
 
 const isEnvFile = (name: string): boolean => name === ".env" || name.startsWith(".env.");
 
