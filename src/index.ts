@@ -20,6 +20,7 @@ import { buildFreeSummary } from "./reporting/freeSummary";
 import { signFreeSummary } from "./reporting/freeSummarySigned";
 import { computeReportHash } from "./reporting/reportHash";
 import { writeScanReport } from "./reporting/reportWriter";
+import { buildStatusSnapshot } from "./reporting/statusSnapshot";
 import { loadRpcEndpoints } from "./rpc/endpoints";
 import { RpcManager } from "./rpc/manager";
 import { closeRpcManagers, createAccessPassRpcManagers, getProvidersByChain } from "./rpc/multiChain";
@@ -282,7 +283,7 @@ const main = async (): Promise<void> => {
       throw new Error("Missing app signer key. Set PREMIUM_SIGNER_PRIVATE_KEY in local .env.");
     }
     const signedFreeSummary = await signFreeSummary(freeSummary, config.APP_SIGNER_KEY);
-    process.stdout.write(`${JSON.stringify(signedFreeSummary)}\n`);
+    process.stdout.write(`Free summary created for reportHash ${reportHash}\n`);
 
     let premiumPackage: PremiumPackage | null = null;
     if (premiumDecision.premiumActive) {
@@ -361,6 +362,15 @@ const main = async (): Promise<void> => {
       filePrefix: "premium-package",
     });
 
+    const statusSnapshot = buildStatusSnapshot({
+      chainId,
+      targetNetwork: config.TARGET_NETWORK,
+      operatorEnabled: config.OPERATOR_ENABLE,
+      lastTickOk: true,
+      lastReportHash: reportHash,
+      premiumModeCapable: Boolean(config.PREMIUM_SIGNER_KEY),
+    });
+
     logger.info(
       {
         mode: "dry-run",
@@ -384,6 +394,7 @@ const main = async (): Promise<void> => {
         reportPersistenceEnabled: config.ENABLE_REPORT_PERSISTENCE,
         freeSummaryPath,
         premiumPackageArchivePath,
+        statusSnapshot,
       },
       "Read-only multi-pair scan report",
     );

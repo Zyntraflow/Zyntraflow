@@ -34,7 +34,12 @@ npm install
 cp .env.example .env
 ```
 
-3. Fill local `.env` values:
+3. Bootstrap local development defaults:
+```bash
+npm run bootstrap:env
+```
+
+4. Fill local `.env` values:
 - `ALCHEMY_URL`
 - wallet private key variable (see `.env.example`)
 - `TARGET_NETWORK`
@@ -123,6 +128,7 @@ Operator loop controls:
 - `npm run preflight`: secret leak scan
 - `npm run lint`: static lint checks
 - `npm test`: unit tests
+- `npm run bootstrap:env`: generate local non-empty dev defaults in `.env`
 - `npm run dev`: run connectivity + dry-run scan
 - `npm run operator`: run scheduled operator scan loop
 - `npm run build`: compile TypeScript
@@ -325,3 +331,7 @@ npx hardhat run contracts/scripts/deploy.ts --network alchemy --config contracts
 
 Minting is done directly by users calling `mint()` on the deployed contract.
 No execution/trading logic is introduced by this flow.
+
+## License
+
+Apache License 2.0. See `LICENSE`.

@@ -27,6 +27,38 @@ export const PAIRS: PairConfig[] = [
     tradeSizeEth: 1,
     liquidityDepthHint: 120,
   },
+  {
+    chainId: 42161,
+    base: getToken(42161, "WETH"),
+    quote: getToken(42161, "USDC"),
+    enabled: true,
+    tradeSizeEth: 1,
+    liquidityDepthHint: 100,
+  },
+  {
+    chainId: 42161,
+    base: getToken(42161, "WETH"),
+    quote: getToken(42161, "DAI"),
+    enabled: true,
+    tradeSizeEth: 1,
+    liquidityDepthHint: 90,
+  },
+  {
+    chainId: 8453,
+    base: getToken(8453, "WETH"),
+    quote: getToken(8453, "USDC"),
+    enabled: true,
+    tradeSizeEth: 1,
+    liquidityDepthHint: 100,
+  },
+  {
+    chainId: 8453,
+    base: getToken(8453, "WETH"),
+    quote: getToken(8453, "DAI"),
+    enabled: true,
+    tradeSizeEth: 1,
+    liquidityDepthHint: 90,
+  },
 ];
 
 export const getEnabledPairsForChain = (chainId: number): PairConfig[] => {

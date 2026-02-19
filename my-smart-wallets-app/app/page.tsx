@@ -17,9 +17,18 @@ export default function Home() {
       <Header />
       <div className="bg-bg-main bg-cover bg-center bg-no-repeat h-[calc(100vh-4rem)]">
         <main className="container mx-auto px-4 py-8 h-full">
-          <div className="mb-4 text-sm">
+          <div className="mb-4 flex flex-wrap gap-3 text-sm">
             <Link className="underline underline-offset-4" href="/launch">
-              Open Launch Guide
+              Launch
+            </Link>
+            <Link className="underline underline-offset-4" href="/dashboard">
+              Dashboard
+            </Link>
+            <Link className="underline underline-offset-4" href="/diagnostics">
+              Diagnostics
+            </Link>
+            <Link className="underline underline-offset-4" href="/premium/decrypt">
+              Premium Decrypt
             </Link>
           </div>
           {signerStatus.isConnected ? (

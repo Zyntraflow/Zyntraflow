@@ -1,7 +1,18 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useLogout, useSignerStatus } from "@account-kit/react";
 import Image from "next/image";
+import Link from "next/link";
+
+const navLinks = [
+  { href: "/", label: "Home" },
+  { href: "/launch", label: "Launch" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/diagnostics", label: "Diagnostics" },
+  { href: "/premium/decrypt", label: "Premium Decrypt" },
+];
 
 export default function Header() {
   const { logout } = useLogout();
@@ -9,7 +20,7 @@ export default function Header() {
 
   return (
     <header className="border-b">
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+      <div className="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Image
             src="/logo.svg"
@@ -20,6 +31,14 @@ export default function Header() {
           />
           <span className="font-semibold">Zyntraflow</span>
         </div>
+
+        <nav className="flex flex-wrap items-center gap-3 text-sm">
+          {navLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="text-muted-foreground hover:text-foreground">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
 
         {isConnected && (
           <Button

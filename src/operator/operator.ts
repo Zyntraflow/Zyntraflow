@@ -3,7 +3,8 @@ import dotenv from "dotenv";
 import { promisify } from "util";
 import { parseCliArgs } from "../cli/args";
 import { logger } from "../logger";
-import { markTickFailure, markTickStart, markTickSuccess } from "./health";
+import { buildStatusSnapshot } from "../reporting/statusSnapshot";
+import { getHealth, markTickFailure, markTickStart, markTickSuccess } from "./health";
 
 dotenv.config({ path: ".env.operator", override: false, quiet: true });
 dotenv.config({ path: ".env", override: false, quiet: true });
@@ -57,6 +58,34 @@ const extractReportHash = (output: string): string | undefined => {
   return textMatch?.[1];
 };
 
+const extractChainId = (output: string): number | undefined => {
+  const jsonMatch = output.match(/"chainId"\s*:\s*(\d+)/);
+  if (jsonMatch?.[1]) {
+    return Number(jsonMatch[1]);
+  }
+  return undefined;
+};
+
+const parseChainIdFromEnv = (): number => {
+  const raw = process.env.CHAIN_ID?.trim() || process.env.ACCESS_PASS_CHAIN_ID?.trim();
+  if (!raw) {
+    return 0;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return 0;
+  }
+
+  return parsed;
+};
+
+const readPremiumModeCapable = (): boolean => {
+  const envName = ["PREMIUM", "SIGNER", "PRIVATE", "KEY"].join("_");
+  const raw = process.env[envName];
+  return Boolean(raw && raw.trim() !== "");
+};
+
 const sanitizeErrorMessage = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error);
   return message
@@ -77,14 +106,33 @@ export const runOnce = async (): Promise<boolean> => {
     });
 
     const reportHash = extractReportHash(stdout ?? "");
+    const chainId = extractChainId(stdout ?? "") ?? parseChainIdFromEnv();
     markTickSuccess(reportHash);
+    const health = getHealth();
+    const statusSnapshot = buildStatusSnapshot({
+      chainId,
+      targetNetwork: process.env.TARGET_NETWORK?.trim() || "unknown",
+      operatorEnabled: true,
+      lastTickOk: health.lastTickOk,
+      lastReportHash: health.lastReportHash,
+      premiumModeCapable: readPremiumModeCapable(),
+    });
     process.stdout.write("Operator tick ok\n");
-    logger.info({ reportHash }, "Operator tick ok");
+    logger.info({ reportHash, statusSnapshot }, "Operator tick ok");
     return true;
   } catch (error) {
     const message = sanitizeErrorMessage(error);
     markTickFailure(message);
-    logger.error({ error: message }, "Operator tick failed");
+    const health = getHealth();
+    const statusSnapshot = buildStatusSnapshot({
+      chainId: parseChainIdFromEnv(),
+      targetNetwork: process.env.TARGET_NETWORK?.trim() || "unknown",
+      operatorEnabled: true,
+      lastTickOk: health.lastTickOk,
+      lastReportHash: health.lastReportHash,
+      premiumModeCapable: readPremiumModeCapable(),
+    });
+    logger.error({ error: message, statusSnapshot }, "Operator tick failed");
     return false;
   }
 };

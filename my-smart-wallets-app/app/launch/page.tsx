@@ -1,8 +1,11 @@
 "use client";
 
+import Header from "../components/header";
+import ResponsiveGrid from "../components/ResponsiveGrid";
+import Section from "../components/Section";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PublicFeedCard from "../components/public-feed-card";
 
 type PublicConfig = {
@@ -34,6 +37,7 @@ const defaultConfig: PublicConfig = {
 export default function LaunchPage() {
   const [config, setConfig] = useState<PublicConfig>(defaultConfig);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -75,72 +79,113 @@ export default function LaunchPage() {
 
   const mintLink = useMemo(() => config.ACCESS_PASS_MINT_EIP681, [config.ACCESS_PASS_MINT_EIP681]);
 
+  const copyValue = useCallback(async (label: string, value: string | null) => {
+    if (!value) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyMessage(`${label} copied`);
+      setTimeout(() => setCopyMessage(null), 1500);
+    } catch {
+      setCopyMessage(`Unable to copy ${label.toLowerCase()}`);
+      setTimeout(() => setCopyMessage(null), 1500);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <Header />
       <main className="container mx-auto max-w-5xl px-4 py-10 space-y-8">
-        <section className="rounded-2xl border bg-background/90 p-6 shadow-sm">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight">Zyntraflow Launch</h1>
-              <p className="text-sm text-muted-foreground">
-                Zyntraflow is a crypto-native, read-only arbitrage scanner. Free feed is public and signed. Premium
-                details are encrypted for Access Pass holders.
-              </p>
-            </div>
+        <Section
+          title="Zyntraflow Launch"
+          description="Zyntraflow is a crypto-native, read-only arbitrage scanner. Free feed is public and signed. Premium details are encrypted for Access Pass holders."
+          actions={
             <Image src="/logo.svg" alt="Zyntraflow" width={88} height={88} className="h-16 w-16 rounded-lg" />
-          </div>
-          <div className="mt-4 text-sm">
-            <Link className="underline underline-offset-4" href="/">
-              Back to home
+          }
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Use this page for public feed verification, premium onboarding, and secure package retrieval.
+            </p>
+            <Link className="text-sm underline underline-offset-4" href="/dashboard">
+              Open Dashboard
             </Link>
           </div>
-        </section>
+          {copyMessage && <p className="mt-3 text-xs text-muted-foreground">{copyMessage}</p>}
+        </Section>
 
-        <section className="rounded-2xl border bg-background/90 p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">Free Feed</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Public feed summaries are signed by Zyntraflow. Anyone can fetch and verify them without accounts.
-          </p>
-          <div className="mt-4">
+        <ResponsiveGrid className="items-start">
+          <Section
+            className="md:col-span-2"
+            title="Free Feed"
+            description="Public feed summaries are signed by Zyntraflow. Verify signatures before using shared data."
+          >
             <PublicFeedCard />
-          </div>
-        </section>
+          </Section>
 
-        <section className="rounded-2xl border bg-background/90 p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">Premium Access Pass</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Premium stays read-only. Access is unlocked by on-chain ERC-1155 ownership checks.
-          </p>
-          <div className="mt-4 grid gap-2 text-sm">
-            <p>contract: {config.ACCESS_PASS_CONTRACT_ADDRESS ?? "Not configured"}</p>
-            <p>chainId: {config.ACCESS_PASS_CHAIN_ID ?? "Not configured"}</p>
-            <p>tokenId: {config.ACCESS_PASS_TOKEN_ID}</p>
-            <p>minBalance: {config.ACCESS_PASS_MIN_BALANCE}</p>
-            <p>mintPriceWei: {config.ACCESS_PASS_MINT_PRICE_WEI ?? "Not configured"}</p>
-            {mintLink && (
-              <p>
-                mint link: <a className="underline underline-offset-4" href={mintLink}>{mintLink}</a>
-              </p>
-            )}
-            {configError && <p className="text-amber-600">public config note: {configError}</p>}
-          </div>
-          <div className="mt-4 rounded bg-muted p-3 text-xs leading-6">
-            <p>1) <code>npm run dev -- --mint-calldata</code></p>
-            <p>2) <code>npm run dev -- --address 0x... --print-login-message</code></p>
-            <p>3) Sign the login message in wallet</p>
-            <p>4) <code>npm run dev -- --address 0x... --signature 0x... --premium true</code></p>
-          </div>
-        </section>
+          <Section
+            title="Premium Access"
+            description="Premium remains read-only. Access is gated by on-chain ERC-1155 ownership checks."
+          >
+            <div className="grid gap-2 text-sm break-all">
+              <p>contract: {config.ACCESS_PASS_CONTRACT_ADDRESS ?? "Not configured"}</p>
+              <p>chainId: {config.ACCESS_PASS_CHAIN_ID ?? "Not configured"}</p>
+              <p>tokenId: {config.ACCESS_PASS_TOKEN_ID}</p>
+              <p>minBalance: {config.ACCESS_PASS_MIN_BALANCE}</p>
+              <p>mintPriceWei: {config.ACCESS_PASS_MINT_PRICE_WEI ?? "Not configured"}</p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  className="min-h-10 rounded border px-3 py-2 text-xs hover:bg-muted"
+                  onClick={() => void copyValue("Contract address", config.ACCESS_PASS_CONTRACT_ADDRESS)}
+                >
+                  Copy contract
+                </button>
+                {mintLink && (
+                  <button
+                    type="button"
+                    className="min-h-10 rounded border px-3 py-2 text-xs hover:bg-muted"
+                    onClick={() => void copyValue("Mint link", mintLink)}
+                  >
+                    Copy mint link
+                  </button>
+                )}
+              </div>
+              {mintLink && (
+                <p>
+                  mint link:{" "}
+                  <a className="underline underline-offset-4" href={mintLink}>
+                    {mintLink}
+                  </a>
+                </p>
+              )}
+              {configError && <p className="text-amber-600">public config note: {configError}</p>}
+            </div>
+          </Section>
 
-        <section className="rounded-2xl border bg-background/90 p-6 shadow-sm">
-          <h2 className="text-xl font-semibold">Premium Pull</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Premium packages are encrypted and user-bound. Pull by report hash + wallet address:
-          </p>
-          <code className="mt-3 block rounded bg-muted p-3 text-xs">
-            {config.PREMIUM_PULL_TEMPLATE}
-          </code>
-        </section>
+          <Section title="How to Unlock" description="Premium package generation uses wallet signature-based encryption.">
+            <div className="rounded bg-muted p-3 text-xs leading-6">
+              <p>1) <code>npm run dev -- --mint-calldata</code></p>
+              <p>2) <code>npm run dev -- --address 0x... --print-login-message</code></p>
+              <p>3) Sign the login message in wallet</p>
+              <p>4) <code>npm run dev -- --address 0x... --signature 0x... --premium true</code></p>
+            </div>
+          </Section>
+
+          <Section title="Premium Pull" description="Packages are encrypted and user-bound. Pull by report hash + wallet address.">
+            <code className="block rounded bg-muted p-3 text-xs break-all">{config.PREMIUM_PULL_TEMPLATE}</code>
+            <div className="mt-3">
+              <button
+                type="button"
+                className="min-h-10 rounded border px-3 py-2 text-xs hover:bg-muted"
+                onClick={() => void copyValue("Premium pull template", config.PREMIUM_PULL_TEMPLATE)}
+              >
+                Copy pull URL template
+              </button>
+            </div>
+          </Section>
+        </ResponsiveGrid>
       </main>
     </div>
   );
