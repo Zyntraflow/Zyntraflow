@@ -1,6 +1,6 @@
 # Caddy reverse proxy for production HTTPS.
 # DOMAIN must be provided via environment variable.
-{$DOMAIN} {
+{$DOMAIN}, www.{$DOMAIN} {
   encode zstd gzip
   reverse_proxy web:3000
 
