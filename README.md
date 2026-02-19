@@ -1,6 +1,7 @@
 # Zyntraflow
 
 ![Zyntraflow Logo](./my-smart-wallets-app/public/logo.svg)
+[![Health Endpoint](https://img.shields.io/badge/health-%2Fapi%2Fhealth-2ea44f)](https://YOUR_DOMAIN/api/health)
 
 Security-first TypeScript foundation for read-only market scanning and dry-run opportunity detection.
 
@@ -127,6 +128,7 @@ Operator loop controls:
 - `npm run build`: compile TypeScript
 - `docker compose build`: build operator + web images
 - `docker compose up`: run operator + web services
+- `bash scripts/smoke-test.sh https://YOUR_DOMAIN`: production smoke check
 
 ## Security Controls
 
@@ -285,6 +287,11 @@ Run:
 docker compose build
 docker compose up
 ```
+
+Production HTTPS reverse proxy:
+- Caddy is included in `docker-compose.yml`
+- set `DOMAIN=your.domain.com` before `docker compose up -d --build`
+- deployment walkthrough: `docs/deploy-vps.md`
 
 ### Premium Rate Limit
 
