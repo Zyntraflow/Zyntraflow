@@ -21,6 +21,43 @@ if git diff --cached --name-only | grep -Eq '^\.env\.operator$'; then
   fail ".env.operator is staged. Remove it from staging."
 fi
 
+extract_nonempty_assignment_line() {
+  file="$1"
+  key_pattern="$2"
+
+  git show ":$file" | awk -v pattern="$key_pattern" '
+    $0 ~ "^[[:space:]]*(" pattern ")[[:space:]]*=" {
+      value = $0
+      sub(/^[[:space:]]*[A-Z0-9_]+[[:space:]]*=[[:space:]]*/, "", value)
+      sub(/[[:space:]]+#.*$/, "", value)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (length(value) > 0) {
+        print NR
+        exit 0
+      }
+    }
+    END { exit 1 }
+  ' || true
+}
+
+extract_nonempty_alchemy_line() {
+  file="$1"
+
+  git show ":$file" | awk '
+    $0 ~ "^[[:space:]]*ALCHEMY_URL[[:space:]]*=" {
+      value = $0
+      sub(/^[[:space:]]*ALCHEMY_URL[[:space:]]*=[[:space:]]*/, "", value)
+      sub(/[[:space:]]+#.*$/, "", value)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (length(value) > 0 && (value ~ /^https?:\/\// || value ~ /\/v2\//)) {
+        print NR
+        exit 0
+      }
+    }
+    END { exit 1 }
+  ' || true
+}
+
 staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
 if [ -z "$staged_files" ]; then
   exit 0
@@ -43,10 +80,14 @@ for file in $staged_files; do
     fail "Potential private key pattern found in staged file '$file' at line ${secret_match%%:*}. Move secrets to local .env"
   fi
 
-  if [ "$file" != "src/config.ts" ] && [ "$file" != ".env.example" ] && [ "$file" != ".env.operator.example" ] && [ "$file" != ".husky/pre-commit" ]; then
-    if git show ":$file" | grep -IEq '\bWALLET_PRIVATE_KEY\b|\bPRIVATE_KEY\b'; then
-      fail "Sensitive marker found in '$file'. Keep PRIVATE_KEY references only in src/config.ts (or placeholders in .env.example)."
-    fi
+  sensitive_line="$(extract_nonempty_assignment_line "$file" 'DISCORD_BOT_TOKEN|TELEGRAM_BOT_TOKEN|PREMIUM_SIGNER_PRIVATE_KEY|IPFS_AUTH_TOKEN')"
+  if [ -n "$sensitive_line" ]; then
+    fail "Detected non-empty sensitive assignment in '$file' at line $sensitive_line. Keep real values only in local .env/.env.operator"
+  fi
+
+  alchemy_line="$(extract_nonempty_alchemy_line "$file")"
+  if [ -n "$alchemy_line" ]; then
+    fail "Detected non-empty ALCHEMY_URL-like assignment in '$file' at line $alchemy_line. Keep real RPC URLs only in local .env/.env.operator"
   fi
 done
 IFS=$old_ifs
