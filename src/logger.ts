@@ -9,6 +9,10 @@ const premiumSignerFieldName = "PREMIUM_SIGNER_KEY";
 const appSignerFieldName = "APP_SIGNER_KEY";
 const userLoginSignatureName = "USER_LOGIN_SIGNATURE";
 const ipfsAuthTokenName = "IPFS_AUTH_TOKEN";
+const discordBotTokenName = "DISCORD_BOT_TOKEN";
+const discordChannelIdName = "DISCORD_CHANNEL_ID";
+const telegramBotTokenName = "TELEGRAM_BOT_TOKEN";
+const telegramChatIdName = "TELEGRAM_CHAT_ID";
 
 const redactPaths = [
   privateFieldName,
@@ -29,6 +33,18 @@ const redactPaths = [
   ipfsAuthTokenName,
   `*.${ipfsAuthTokenName}`,
   `config.${ipfsAuthTokenName}`,
+  discordBotTokenName,
+  `*.${discordBotTokenName}`,
+  `config.${discordBotTokenName}`,
+  discordChannelIdName,
+  `*.${discordChannelIdName}`,
+  `config.${discordChannelIdName}`,
+  telegramBotTokenName,
+  `*.${telegramBotTokenName}`,
+  `config.${telegramBotTokenName}`,
+  telegramChatIdName,
+  `*.${telegramChatIdName}`,
+  `config.${telegramChatIdName}`,
   "authorization",
   "*.authorization",
   "ALCHEMY_URL",
@@ -40,6 +56,7 @@ const sanitizeString = (value: string): string => {
   return value
     .replace(/(https?:\/\/[^\s?#]+)\?([^\s#]+)/gi, "$1?[REDACTED]")
     .replace(/(\/v2\/)([^/\s?#]+)/gi, "$1[REDACTED]")
+    .replace(/(\/bot)([^/\s?#]+)/gi, "$1[REDACTED]")
     .replace(/\b0x[a-fA-F0-9]{130}\b/g, "[REDACTED_SIGNATURE]")
     .replace(/\b(?:0x)?[a-fA-F0-9]{64}\b/g, "[REDACTED_HEX_64]");
 };

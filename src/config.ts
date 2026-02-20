@@ -26,6 +26,14 @@ export type AppConfig = {
   PREMIUM_RATE_LIMIT_WINDOW_SECONDS: number;
   IPFS_UPLOAD_URL?: string;
   IPFS_AUTH_TOKEN?: string;
+  ENABLE_DISCORD_ALERTS: boolean;
+  DISCORD_BOT_TOKEN?: string;
+  DISCORD_CHANNEL_ID?: string;
+  DISCORD_ALERTS_MIN_INTERVAL_SECONDS: number;
+  ENABLE_TELEGRAM_ALERTS: boolean;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
+  TELEGRAM_ALERTS_MIN_INTERVAL_SECONDS: number;
   ENABLE_PUBLIC_SUMMARY_PUBLISH: boolean;
   ENABLE_PUBLIC_METRICS: boolean;
   ACCESS_PASS_MINT_PRICE_WEI?: string;
@@ -83,6 +91,8 @@ const parseBooleanEnv = (
     | "ENABLE_PREMIUM_MODE"
     | "ENABLE_PUBLIC_SUMMARY_PUBLISH"
     | "ENABLE_PUBLIC_METRICS"
+    | "ENABLE_DISCORD_ALERTS"
+    | "ENABLE_TELEGRAM_ALERTS"
     | "OPERATOR_ENABLE",
   fallback: boolean,
 ): boolean => {
@@ -127,7 +137,9 @@ const parseIntegerEnvWithDefault = (
     | "RPC_MAX_CONCURRENCY"
     | "RPC_RETRY_MAX"
     | "RPC_RETRY_BACKOFF_MS"
-    | "RPC_TIMEOUT_MS",
+    | "RPC_TIMEOUT_MS"
+    | "DISCORD_ALERTS_MIN_INTERVAL_SECONDS"
+    | "TELEGRAM_ALERTS_MIN_INTERVAL_SECONDS",
   defaultValue: number,
   options?: { min?: number },
 ): number => {
@@ -164,7 +176,15 @@ const parseOptionalAddressEnv = (
 };
 
 const parseOptionalTextEnv = (
-  name: "USER_LOGIN_SIGNATURE" | "IPFS_UPLOAD_URL" | "IPFS_AUTH_TOKEN" | "ACCESS_PASS_CONTRACTS_JSON",
+  name:
+    | "USER_LOGIN_SIGNATURE"
+    | "IPFS_UPLOAD_URL"
+    | "IPFS_AUTH_TOKEN"
+    | "ACCESS_PASS_CONTRACTS_JSON"
+    | "DISCORD_BOT_TOKEN"
+    | "DISCORD_CHANNEL_ID"
+    | "TELEGRAM_BOT_TOKEN"
+    | "TELEGRAM_CHAT_ID",
 ): string | undefined => {
   const value = process.env[name];
   if (!value || value.trim() === "") {
@@ -305,6 +325,18 @@ export const loadConfig = (): AppConfig => {
     IPFS_UPLOAD_URL: parseOptionalTextEnv("IPFS_UPLOAD_URL"),
     IPFS_AUTH_TOKEN: parseOptionalTextEnv("IPFS_AUTH_TOKEN"),
     ENABLE_PUBLIC_SUMMARY_PUBLISH: parseBooleanEnv("ENABLE_PUBLIC_SUMMARY_PUBLISH", false),
+    ENABLE_DISCORD_ALERTS: parseBooleanEnv("ENABLE_DISCORD_ALERTS", false),
+    DISCORD_BOT_TOKEN: parseOptionalTextEnv("DISCORD_BOT_TOKEN"),
+    DISCORD_CHANNEL_ID: parseOptionalTextEnv("DISCORD_CHANNEL_ID"),
+    DISCORD_ALERTS_MIN_INTERVAL_SECONDS: parseIntegerEnvWithDefault("DISCORD_ALERTS_MIN_INTERVAL_SECONDS", 60, {
+      min: 1,
+    }),
+    ENABLE_TELEGRAM_ALERTS: parseBooleanEnv("ENABLE_TELEGRAM_ALERTS", false),
+    TELEGRAM_BOT_TOKEN: parseOptionalTextEnv("TELEGRAM_BOT_TOKEN"),
+    TELEGRAM_CHAT_ID: parseOptionalTextEnv("TELEGRAM_CHAT_ID"),
+    TELEGRAM_ALERTS_MIN_INTERVAL_SECONDS: parseIntegerEnvWithDefault("TELEGRAM_ALERTS_MIN_INTERVAL_SECONDS", 60, {
+      min: 1,
+    }),
     ENABLE_PUBLIC_METRICS: parseBooleanEnv("ENABLE_PUBLIC_METRICS", false),
     ACCESS_PASS_MINT_PRICE_WEI: parseOptionalWeiEnv("ACCESS_PASS_MINT_PRICE_WEI"),
     ACCESS_PASS_ACCEPTED_CHAINS: acceptedChains,

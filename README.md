@@ -1,6 +1,6 @@
 # Zyntraflow
 
-![Zyntraflow Logo](./my-smart-wallets-app/public/logo.svg)
+![Zyntraflow Logo](./logo.svg)
 [![Health Endpoint](https://img.shields.io/badge/health-%2Fapi%2Fhealth-2ea44f)](https://YOUR_DOMAIN/api/health)
 
 Security-first TypeScript foundation for read-only market scanning and dry-run opportunity detection.
@@ -136,6 +136,12 @@ Operator loop controls:
 - `docker compose up`: run operator + web services
 - `bash scripts/smoke-test.sh https://YOUR_DOMAIN`: production smoke check
 
+## Build Reliability
+
+- Web build uses increased Node memory and telemetry disabled by default.
+- Runtime-driven pages use dynamic rendering to avoid heavy static optimization stalls.
+- Build watchdog guide: `docs/build-troubleshooting.md`
+
 ## Security Controls
 
 - `.env` and `.env.*` are git-ignored.
@@ -264,6 +270,9 @@ When running `my-smart-wallets-app`, public feed data is available via:
 
 Encrypted premium packages can be fetched by:
 - `/api/premium/<reportHash>/<address>`
+- `/api/alerts/latest`
+- `POST /api/subscriptions`
+- `GET /api/subscriptions/<address>`
 
 Premium payloads are encrypted and user-bound. Users fetch package JSON then decrypt locally with their signature-derived key.
 
@@ -276,6 +285,33 @@ Security reminders:
 - Never share wallet signatures publicly.
 - Never commit `.env` or `.env.operator`.
 - Keep all scanner behavior read-only in this branch.
+
+## Alerts + Wallet-Signed Subscriptions
+
+- Alert subscriptions are authenticated by wallet signature only (SIWE-lite style), no account/password flow.
+- Subscriptions are stored locally at `reports/subscriptions/<address>.json`.
+- Alert artifacts are stored at:
+  - `reports/alerts/YYYY-MM-DD.jsonl`
+  - `reports/alerts/latest.json`
+- Webhook delivery is HTTPS-only and best effort with retry/backoff.
+- Email delivery is intentionally disabled unless operator SMTP credentials are configured in a future integration.
+- In-app alert feed is available at `/api/alerts/latest` and `/alerts`.
+- Operator can send Discord alerts (rate-limited, one top alert per tick):
+  - `ENABLE_DISCORD_ALERTS`
+  - `DISCORD_BOT_TOKEN`
+  - `DISCORD_CHANNEL_ID`
+  - `DISCORD_ALERTS_MIN_INTERVAL_SECONDS`
+- Operator can send Telegram alerts (rate-limited, one top alert per tick):
+  - `ENABLE_TELEGRAM_ALERTS`
+  - `TELEGRAM_BOT_TOKEN`
+  - `TELEGRAM_CHAT_ID`
+  - `TELEGRAM_ALERTS_MIN_INTERVAL_SECONDS`
+
+Telegram setup:
+1. Create a bot with BotFather and get bot token.
+2. Add bot to your target chat/channel.
+3. Use the target chat ID in `.env.operator`.
+4. Keep token/chat values only in `.env.operator` and never commit them.
 
 ## Production Deployment (Docker)
 
@@ -335,3 +371,9 @@ No execution/trading logic is introduced by this flow.
 ## License
 
 Apache License 2.0. See `LICENSE`.
+
+## Community
+
+- Discord: https://discord.gg/p7Ty4ERH
+- X: https://x.com/zyntraflow
+- GitHub: https://github.com/Zyntraflow
