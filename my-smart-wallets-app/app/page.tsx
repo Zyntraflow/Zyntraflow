@@ -30,6 +30,9 @@ export default function Home() {
             <Link className="underline underline-offset-4" href="/diagnostics">
               Diagnostics
             </Link>
+            <Link className="underline underline-offset-4" href="/setup">
+              Setup
+            </Link>
             <Link className="underline underline-offset-4" href="/premium/decrypt">
               Premium Decrypt
             </Link>

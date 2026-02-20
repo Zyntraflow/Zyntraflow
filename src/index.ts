@@ -383,6 +383,7 @@ const main = async (): Promise<void> => {
     }
 
     const scanReport = await runMultiChainScan({ tasks: scanTasks });
+    process.stdout.write(`Chains scanned: ${(scanReport.chainIds ?? [scanReport.chainId]).length}\n`);
 
     const reportHash = computeReportHash(scanReport);
     const enrichedReport = premiumDecision.includeRicherReport

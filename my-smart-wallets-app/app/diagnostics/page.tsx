@@ -16,6 +16,14 @@ type CheckResult = {
   message: string;
 };
 
+type ReadinessPayload = {
+  ts: string;
+  lastTickOk: boolean;
+  lastReportHash: string | null;
+  chainsScanned: number;
+  profileId: string;
+};
+
 const interpretResult = (name: string, path: string, status: number | null, ok: boolean, failed = false): CheckResult => {
   if (failed) {
     return {
@@ -80,18 +88,23 @@ export default function DiagnosticsPage() {
   const [results, setResults] = useState<CheckResult[]>([]);
   const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [readiness, setReadiness] = useState<ReadinessPayload | null>(null);
 
   const runChecks = useCallback(async () => {
     const targets = [
       { name: "Health", path: "/api/health" },
       { name: "Latest Feed", path: "/api/feed/latest" },
       { name: "Public Config", path: "/api/public-config" },
+      { name: "Readiness", path: "/api/readiness" },
     ];
 
     const checks = await Promise.all(
       targets.map(async (target) => {
         try {
           const response = await fetch(target.path, { cache: "no-store" });
+          if (target.path === "/api/readiness" && response.ok) {
+            setReadiness((await response.json()) as ReadinessPayload);
+          }
           return interpretResult(target.name, target.path, response.status, response.ok);
         } catch {
           return interpretResult(target.name, target.path, null, false, true);
@@ -112,6 +125,7 @@ export default function DiagnosticsPage() {
       JSON.stringify(
         {
           checkedAt: lastCheckedAt,
+          readiness,
           checks: results.map((item) => ({
             name: item.name,
             path: item.path,
@@ -123,7 +137,7 @@ export default function DiagnosticsPage() {
         null,
         2,
       ),
-    [lastCheckedAt, results],
+    [lastCheckedAt, readiness, results],
   );
 
   const onCopySupportBundle = useCallback(async () => {
@@ -180,6 +194,20 @@ export default function DiagnosticsPage() {
                 Open Dashboard
               </Link>
             </p>
+          </Section>
+
+          <Section title="Readiness Info" description="Operator-produced readiness artifact from /api/readiness.">
+            {!readiness ? (
+              <p className="text-sm text-muted-foreground">No readiness artifact available yet.</p>
+            ) : (
+              <div className="space-y-1 text-sm">
+                <p>ts: {readiness.ts}</p>
+                <p>lastTickOk: {String(readiness.lastTickOk)}</p>
+                <p className="break-all">lastReportHash: {readiness.lastReportHash ?? "none"}</p>
+                <p>chainsScanned: {readiness.chainsScanned}</p>
+                <p>profileId: {readiness.profileId}</p>
+              </div>
+            )}
           </Section>
 
           <Section

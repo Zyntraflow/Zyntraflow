@@ -12,6 +12,7 @@ const navLinks = [
   { href: "/launch", label: "Launch" },
   { href: "/alerts", label: "Alerts" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/setup", label: "Setup" },
   { href: "/diagnostics", label: "Diagnostics" },
   { href: "/premium/decrypt", label: "Premium Decrypt" },
 ];

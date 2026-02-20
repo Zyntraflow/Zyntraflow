@@ -5,6 +5,7 @@ import { parseCliArgs } from "../cli/args";
 import { logger } from "../logger";
 import { buildStatusSnapshot } from "../reporting/statusSnapshot";
 import { getHealth, markTickFailure, markTickStart, markTickSuccess } from "./health";
+import { writeReadiness } from "./readiness";
 
 dotenv.config({ path: ".env.operator", override: false, quiet: true });
 dotenv.config({ path: ".env", override: false, quiet: true });
@@ -64,6 +65,32 @@ const extractChainId = (output: string): number | undefined => {
     return Number(jsonMatch[1]);
   }
   return undefined;
+};
+
+const extractProfileId = (output: string): string | undefined => {
+  const textMatch = output.match(/Using scan profile:\s*([a-zA-Z0-9_-]+)/);
+  if (textMatch?.[1]) {
+    return textMatch[1];
+  }
+  const jsonMatch = output.match(/"profile"\s*:\s*\{\s*"id"\s*:\s*"([a-zA-Z0-9_-]+)"/);
+  return jsonMatch?.[1];
+};
+
+const extractChainsScanned = (output: string): number | undefined => {
+  const textMatch = output.match(/Chains scanned:\s*(\d+)/i);
+  if (textMatch?.[1]) {
+    return Number(textMatch[1]);
+  }
+
+  const jsonMatch = output.match(/"chainIds"\s*:\s*\[([^\]]*)\]/);
+  if (!jsonMatch?.[1]) {
+    return undefined;
+  }
+  const values = jsonMatch[1]
+    .split(",")
+    .map((value) => Number(value.trim()))
+    .filter((value) => Number.isInteger(value) && value > 0);
+  return values.length > 0 ? values.length : undefined;
 };
 
 const extractAlertsSent = (output: string): number => {
@@ -176,6 +203,8 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
     const discordSentAt = extractChannelSentAt(stdout ?? "", "Discord");
     const telegramStatus = extractChannelStatus(stdout ?? "", "Telegram");
     const telegramSentAt = extractChannelSentAt(stdout ?? "", "Telegram");
+    const profileId = extractProfileId(stdout ?? "") ?? options?.profileId ?? "unknown";
+    const chainsScanned = extractChainsScanned(stdout ?? "") ?? options?.chains?.length ?? 1;
     const chainId = extractChainId(stdout ?? "") ?? parseChainIdFromEnv();
     markTickSuccess(reportHash, {
       lastAlertsSent: alertsSent,
@@ -183,6 +212,12 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
       lastDiscordSentAt: discordSentAt,
       lastTelegramStatus: telegramStatus,
       lastTelegramSentAt: telegramSentAt,
+    });
+    writeReadiness({
+      lastTickOk: true,
+      lastReportHash: reportHash ?? null,
+      chainsScanned,
+      profileId,
     });
     const health = getHealth();
     const statusSnapshot = buildStatusSnapshot({
@@ -204,6 +239,11 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
   } catch (error) {
     const message = sanitizeErrorMessage(error);
     markTickFailure(message);
+    writeReadiness({
+      lastTickOk: false,
+      chainsScanned: options?.chains?.length ?? 0,
+      profileId: options?.profileId ?? "unknown",
+    });
     const health = getHealth();
     const statusSnapshot = buildStatusSnapshot({
       chainId: parseChainIdFromEnv(),
