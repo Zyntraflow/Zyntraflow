@@ -135,6 +135,7 @@ Operator loop controls:
 - `docker compose build`: build operator + web images
 - `docker compose up`: run operator + web services
 - `bash scripts/smoke-test.sh https://YOUR_DOMAIN`: production smoke check
+- `powershell -ExecutionPolicy Bypass -File .\scripts\smoke-test-windows.ps1 -Domain zyntraflow.org -OriginIp <VPS_IP>`: Windows connectivity smoke check
 
 ## Build Reliability
 
@@ -334,6 +335,7 @@ Production HTTPS reverse proxy:
 - Caddy is included in `docker-compose.yml`
 - set `DOMAIN=your.domain.com` before `docker compose up -d --build`
 - deployment walkthrough: `docs/deploy-vps.md`
+- If you see Cloudflare `522`, use the Windows-first runbook: `docs/windows-vps-deploy.md`
 
 ### Premium Rate Limit
 
