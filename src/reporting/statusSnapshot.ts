@@ -7,6 +7,9 @@ export type StatusSnapshot = {
   operatorEnabled: boolean;
   lastTickOk: boolean;
   lastReportHash: string | null;
+  consecutiveFailures: number;
+  lastBackoffMs: number;
+  lastRestartAt: string | null;
   lastAlertsSent: number;
   lastDiscordSentAt: string | null;
   lastDiscordStatus: "sent" | "skipped" | "error" | null;
@@ -22,6 +25,9 @@ export type StatusSnapshotInput = {
   operatorEnabled: boolean;
   lastTickOk: boolean;
   lastReportHash?: string | null;
+  consecutiveFailures?: number;
+  lastBackoffMs?: number;
+  lastRestartAt?: string | null;
   lastAlertsSent?: number;
   lastDiscordSentAt?: string | null;
   lastDiscordStatus?: "sent" | "skipped" | "error" | null;
@@ -38,6 +44,9 @@ export const buildStatusSnapshot = (input: StatusSnapshotInput): StatusSnapshot 
     operatorEnabled: input.operatorEnabled,
     lastTickOk: input.lastTickOk,
     lastReportHash: input.lastReportHash ?? null,
+    consecutiveFailures: input.consecutiveFailures ?? 0,
+    lastBackoffMs: input.lastBackoffMs ?? 0,
+    lastRestartAt: input.lastRestartAt ?? null,
     lastAlertsSent: input.lastAlertsSent ?? 0,
     lastDiscordSentAt: input.lastDiscordSentAt ?? null,
     lastDiscordStatus: input.lastDiscordStatus ?? null,

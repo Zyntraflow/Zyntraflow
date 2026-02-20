@@ -8,6 +8,9 @@ type OperatorHealth = {
   lastTickOk: boolean;
   lastError: string | null;
   lastReportHash: string | null;
+  consecutiveFailures: number;
+  lastBackoffMs: number;
+  lastRestartAt: string | null;
   lastAlertsSent: number;
   lastDiscordSentAt: string | null;
   lastDiscordStatus: "sent" | "skipped" | "error" | null;
@@ -21,6 +24,9 @@ const defaultHealth = (): OperatorHealth => ({
   lastTickOk: false,
   lastError: null,
   lastReportHash: null,
+  consecutiveFailures: 0,
+  lastBackoffMs: 0,
+  lastRestartAt: null,
   lastAlertsSent: 0,
   lastDiscordSentAt: null,
   lastDiscordStatus: null,
@@ -56,6 +62,9 @@ export async function GET(): Promise<Response> {
       lastTickOk: health.lastTickOk,
       lastReportHash: health.lastReportHash,
       lastError: health.lastError,
+      consecutiveFailures: health.consecutiveFailures,
+      lastBackoffMs: health.lastBackoffMs,
+      lastRestartAt: health.lastRestartAt,
       lastAlertsSent: health.lastAlertsSent,
       lastDiscordSentAt: health.lastDiscordSentAt,
       lastDiscordStatus: health.lastDiscordStatus,

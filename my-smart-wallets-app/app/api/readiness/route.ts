@@ -9,6 +9,9 @@ type ReadinessPayload = {
   lastReportHash: string | null;
   chainsScanned: number;
   profileId: string;
+  consecutiveFailures: number;
+  lastBackoffMs: number;
+  lastRestartAt: string | null;
 };
 
 const resolveReadinessPath = (): string => {
@@ -38,6 +41,17 @@ export async function GET(): Promise<Response> {
             ? payload.chainsScanned
             : 0,
         profileId: typeof payload.profileId === "string" ? payload.profileId : "unknown",
+        consecutiveFailures:
+          typeof payload.consecutiveFailures === "number" &&
+          Number.isInteger(payload.consecutiveFailures) &&
+          payload.consecutiveFailures >= 0
+            ? payload.consecutiveFailures
+            : 0,
+        lastBackoffMs:
+          typeof payload.lastBackoffMs === "number" && Number.isInteger(payload.lastBackoffMs) && payload.lastBackoffMs >= 0
+            ? payload.lastBackoffMs
+            : 0,
+        lastRestartAt: typeof payload.lastRestartAt === "string" ? payload.lastRestartAt : null,
       },
       {
         headers: {

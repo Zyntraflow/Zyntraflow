@@ -7,6 +7,9 @@ export type OperatorHealth = {
   lastTickOk: boolean;
   lastError: string | null;
   lastReportHash: string | null;
+  consecutiveFailures: number;
+  lastBackoffMs: number;
+  lastRestartAt: string | null;
   lastAlertsSent: number;
   lastDiscordSentAt: string | null;
   lastDiscordStatus: "sent" | "skipped" | "error" | null;
@@ -20,6 +23,9 @@ const healthState: OperatorHealth = {
   lastTickOk: false,
   lastError: null,
   lastReportHash: null,
+  consecutiveFailures: 0,
+  lastBackoffMs: 0,
+  lastRestartAt: null,
   lastAlertsSent: 0,
   lastDiscordSentAt: null,
   lastDiscordStatus: null,
@@ -97,6 +103,22 @@ export const markTickFailure = (error: unknown, baseDir?: string): void => {
   healthState.lastTickAt = healthState.timestamp;
   healthState.lastTickOk = false;
   healthState.lastError = sanitizeError(error);
+  persist(baseDir);
+};
+
+export const setWatchdogState = (
+  input: {
+    consecutiveFailures: number;
+    lastBackoffMs: number;
+    lastRestartAt: string | null;
+  },
+  baseDir?: string,
+): void => {
+  healthState.timestamp = new Date().toISOString();
+  healthState.consecutiveFailures =
+    Number.isInteger(input.consecutiveFailures) && input.consecutiveFailures >= 0 ? input.consecutiveFailures : 0;
+  healthState.lastBackoffMs = Number.isInteger(input.lastBackoffMs) && input.lastBackoffMs >= 0 ? input.lastBackoffMs : 0;
+  healthState.lastRestartAt = input.lastRestartAt ?? null;
   persist(baseDir);
 };
 

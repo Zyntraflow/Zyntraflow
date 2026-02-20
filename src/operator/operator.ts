@@ -4,8 +4,9 @@ import { promisify } from "util";
 import { parseCliArgs } from "../cli/args";
 import { logger } from "../logger";
 import { buildStatusSnapshot } from "../reporting/statusSnapshot";
-import { getHealth, markTickFailure, markTickStart, markTickSuccess } from "./health";
+import { getHealth, markTickFailure, markTickStart, markTickSuccess, setWatchdogState } from "./health";
 import { writeReadiness } from "./readiness";
+import { OperatorWatchdog } from "./watchdog";
 
 dotenv.config({ path: ".env.operator", override: false, quiet: true });
 dotenv.config({ path: ".env", override: false, quiet: true });
@@ -152,6 +153,9 @@ const parseChainIdFromEnv = (): number => {
   return parsed;
 };
 
+const WATCHDOG_FAILURE_THRESHOLD = 3;
+const WATCHDOG_MAX_BACKOFF_MS = 5 * 60 * 1000;
+
 const readPremiumModeCapable = (): boolean => {
   const envName = ["PREMIUM", "SIGNER", "PRIVATE", "KEY"].join("_");
   const raw = process.env[envName];
@@ -226,6 +230,9 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
       operatorEnabled: true,
       lastTickOk: health.lastTickOk,
       lastReportHash: health.lastReportHash,
+      consecutiveFailures: health.consecutiveFailures,
+      lastBackoffMs: health.lastBackoffMs,
+      lastRestartAt: health.lastRestartAt,
       lastAlertsSent: health.lastAlertsSent,
       lastDiscordSentAt: health.lastDiscordSentAt,
       lastDiscordStatus: health.lastDiscordStatus,
@@ -251,6 +258,9 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
       operatorEnabled: true,
       lastTickOk: health.lastTickOk,
       lastReportHash: health.lastReportHash,
+      consecutiveFailures: health.consecutiveFailures,
+      lastBackoffMs: health.lastBackoffMs,
+      lastRestartAt: health.lastRestartAt,
       lastAlertsSent: health.lastAlertsSent,
       lastDiscordSentAt: health.lastDiscordSentAt,
       lastDiscordStatus: health.lastDiscordStatus,
@@ -270,12 +280,47 @@ export const runLoop = async (
   shouldContinue: () => boolean = () => true,
   tickOptions?: TickOptions,
 ): Promise<void> => {
+  const watchdog = new OperatorWatchdog({
+    failureThreshold: WATCHDOG_FAILURE_THRESHOLD,
+    baseBackoffMs: Math.max(1000, intervalSeconds * 1000),
+    maxBackoffMs: WATCHDOG_MAX_BACKOFF_MS,
+    closeProviders: async () => {
+      // Each tick runs in an isolated subprocess. Recovery still performs an explicit cleanup hook.
+      logger.warn("Watchdog restart: resetting operator resources");
+    },
+  });
+
   let ticks = 0;
   while (shouldContinue()) {
-    await runOnce(tickOptions);
+    const succeeded = await runOnce(tickOptions);
     ticks += 1;
+
+    if (succeeded) {
+      const snapshot = watchdog.recordSuccess();
+      setWatchdogState(snapshot);
+      writeReadiness(snapshot);
+    } else {
+      const result = await watchdog.recordFailureAndRecover();
+      setWatchdogState(result.snapshot);
+      writeReadiness(result.snapshot);
+      if (result.restarted) {
+        logger.warn(
+          {
+            consecutiveFailures: result.snapshot.consecutiveFailures,
+            lastBackoffMs: result.snapshot.lastBackoffMs,
+            lastRestartAt: result.snapshot.lastRestartAt,
+          },
+          "Watchdog triggered controlled restart",
+        );
+      }
+    }
+
     if (maxTicks > 0 && ticks >= maxTicks) {
       return;
+    }
+
+    if (!succeeded) {
+      continue;
     }
 
     const baseDelay = intervalSeconds * 1000;

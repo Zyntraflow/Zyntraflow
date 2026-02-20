@@ -7,6 +7,9 @@ export type OperatorReadiness = {
   lastReportHash: string | null;
   chainsScanned: number;
   profileId: string;
+  consecutiveFailures: number;
+  lastBackoffMs: number;
+  lastRestartAt: string | null;
 };
 
 const DEFAULT_READINESS: OperatorReadiness = {
@@ -15,6 +18,9 @@ const DEFAULT_READINESS: OperatorReadiness = {
   lastReportHash: null,
   chainsScanned: 0,
   profileId: "unknown",
+  consecutiveFailures: 0,
+  lastBackoffMs: 0,
+  lastRestartAt: null,
 };
 
 const sanitizeReportHash = (value?: string | null): string | null => {
@@ -42,6 +48,17 @@ export const readReadiness = (baseDir: string = process.cwd()): OperatorReadines
           ? parsed.chainsScanned
           : 0,
       profileId: typeof parsed.profileId === "string" && parsed.profileId.trim() !== "" ? parsed.profileId : "unknown",
+      consecutiveFailures:
+        typeof parsed.consecutiveFailures === "number" &&
+        Number.isInteger(parsed.consecutiveFailures) &&
+        parsed.consecutiveFailures >= 0
+          ? parsed.consecutiveFailures
+          : 0,
+      lastBackoffMs:
+        typeof parsed.lastBackoffMs === "number" && Number.isInteger(parsed.lastBackoffMs) && parsed.lastBackoffMs >= 0
+          ? parsed.lastBackoffMs
+          : 0,
+      lastRestartAt: typeof parsed.lastRestartAt === "string" && parsed.lastRestartAt.trim() !== "" ? parsed.lastRestartAt : null,
     };
   } catch {
     return { ...DEFAULT_READINESS };
@@ -62,6 +79,22 @@ export const writeReadiness = (
         ? input.chainsScanned
         : previous.chainsScanned,
     profileId: typeof input.profileId === "string" && input.profileId.trim() !== "" ? input.profileId : previous.profileId,
+    consecutiveFailures:
+      typeof input.consecutiveFailures === "number" &&
+      Number.isInteger(input.consecutiveFailures) &&
+      input.consecutiveFailures >= 0
+        ? input.consecutiveFailures
+        : previous.consecutiveFailures,
+    lastBackoffMs:
+      typeof input.lastBackoffMs === "number" && Number.isInteger(input.lastBackoffMs) && input.lastBackoffMs >= 0
+        ? input.lastBackoffMs
+        : previous.lastBackoffMs,
+    lastRestartAt:
+      typeof input.lastRestartAt === "string" && input.lastRestartAt.trim() !== ""
+        ? input.lastRestartAt
+        : input.lastRestartAt === null
+          ? null
+          : previous.lastRestartAt,
   };
 
   const filePath = resolveReadinessPath(baseDir);
