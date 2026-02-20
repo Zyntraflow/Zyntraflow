@@ -11,6 +11,7 @@ const buildScanReport = (): ScanReport => {
     opportunities: [],
     simulations: [
       {
+        chainId: 1,
         pair: "WETH/USDC",
         buyFrom: "mock",
         sellTo: "onchain_univ2",
@@ -26,6 +27,7 @@ const buildScanReport = (): ScanReport => {
         },
       },
       {
+        chainId: 1,
         pair: "WETH/DAI",
         buyFrom: "mock",
         sellTo: "onchain_univ2",
@@ -39,6 +41,42 @@ const buildScanReport = (): ScanReport => {
           passesThreshold: true,
           riskFlags: ["LOW_NET_MARGIN"],
         },
+      },
+    ],
+    rankedOpportunities: [
+      {
+        chainId: 1,
+        pair: "WETH/USDC",
+        buyFrom: "mock",
+        sellTo: "onchain_univ2",
+        grossGap: 0.05,
+        quoteInputs: [],
+        simulation: {
+          grossProfitEth: 0.05,
+          netProfitEth: 0.03,
+          gasCostEth: 0.002,
+          slippagePercent: 0.01,
+          passesThreshold: true,
+          riskFlags: [],
+        },
+        score: 0.4,
+      },
+      {
+        chainId: 1,
+        pair: "WETH/DAI",
+        buyFrom: "mock",
+        sellTo: "onchain_univ2",
+        grossGap: 0.02,
+        quoteInputs: [],
+        simulation: {
+          grossProfitEth: 0.02,
+          netProfitEth: 0.01,
+          gasCostEth: 0.002,
+          slippagePercent: 0.01,
+          passesThreshold: true,
+          riskFlags: ["LOW_NET_MARGIN"],
+        },
+        score: 0.1,
       },
     ],
     errors: [],
@@ -55,6 +93,8 @@ describe("free summary", () => {
     expect(summary.reportHash).toBe("0x" + "ab".repeat(32));
     expect(summary.topOpportunities).toHaveLength(1);
     expect(summary.topOpportunities[0].pair).toBe("WETH/USDC");
+    expect(summary.topOpportunities[0].chainId).toBe(1);
+    expect(summary.topOpportunities[0].score).toBe(0.4);
     expect(summary.premiumAvailable).toBe(true);
   });
 

@@ -3,12 +3,14 @@
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useLogout, useSignerStatus } from "@account-kit/react";
+import { BRAND_LOGO_SVG } from "@/lib/branding";
 import Image from "next/image";
 import Link from "next/link";
 
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/launch", label: "Launch" },
+  { href: "/alerts", label: "Alerts" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/diagnostics", label: "Diagnostics" },
   { href: "/premium/decrypt", label: "Premium Decrypt" },
@@ -23,7 +25,7 @@ export default function Header() {
       <div className="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Image
-            src="/logo.svg"
+            src={BRAND_LOGO_SVG}
             alt="Zyntraflow"
             width={48}
             height={48}

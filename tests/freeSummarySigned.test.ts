@@ -10,9 +10,13 @@ const baseSummary: FreeSummary = {
   pairsScanned: 2,
   topOpportunities: [
     {
+      chainId: 1,
       pair: "WETH/USDC",
       netProfitEth: 0.04,
+      gasCostEth: 0.002,
+      slippagePercent: 0.01,
       riskFlags: [],
+      score: 0.3,
     },
   ],
   reportHash: "0x" + "ab".repeat(32),

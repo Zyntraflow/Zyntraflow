@@ -4,6 +4,9 @@ export type CliArgs = {
   premiumOverride?: boolean;
   operatorOverride?: boolean;
   intervalOverride?: number;
+  profileId?: string;
+  chains?: number[];
+  pairs?: string[];
   mintInfo: boolean;
   mintCalldata: boolean;
   printLoginMessage: boolean;
@@ -89,6 +92,50 @@ export const parseCliArgs = (argv: string[] = process.argv.slice(2)): CliArgs =>
         throw new Error(`Invalid interval value: ${value}`);
       }
       args.intervalOverride = parsed;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--profile") {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error("Missing value for --profile");
+      }
+      args.profileId = value.trim();
+      index += 1;
+      continue;
+    }
+
+    if (token === "--chains") {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error("Missing value for --chains");
+      }
+      const parsed = value
+        .split(",")
+        .map((entry) => Number(entry.trim()))
+        .filter((entry) => Number.isInteger(entry) && entry > 0);
+      if (parsed.length === 0) {
+        throw new Error("Invalid value for --chains. Expected comma-separated chain IDs.");
+      }
+      args.chains = parsed;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--pairs") {
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error("Missing value for --pairs");
+      }
+      const parsed = value
+        .split(",")
+        .map((entry) => entry.trim().toUpperCase())
+        .filter((entry) => entry.length > 0);
+      if (parsed.length === 0) {
+        throw new Error("Invalid value for --pairs. Expected comma-separated pair symbols.");
+      }
+      args.pairs = parsed;
       index += 1;
       continue;
     }

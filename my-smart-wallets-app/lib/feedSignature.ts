@@ -6,9 +6,13 @@ export type FreeSummary = {
   rpcName: string;
   pairsScanned: number;
   topOpportunities: Array<{
+    chainId: number;
     pair: string;
     netProfitEth: number;
+    gasCostEth: number;
+    slippagePercent: number;
     riskFlags: string[];
+    score: number;
   }>;
   reportHash: string;
   premiumAvailable: boolean;

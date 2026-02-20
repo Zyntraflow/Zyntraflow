@@ -6,6 +6,8 @@ import Section from "@/app/components/Section";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+export const dynamic = "force-dynamic";
+
 type CheckResult = {
   name: string;
   path: string;

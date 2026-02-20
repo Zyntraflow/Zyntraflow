@@ -23,6 +23,17 @@ export const createAccessPassRpcManagers = (
   managersByChain: Record<number, RpcManager>;
   errors: string[];
 } => {
+  return createAlchemyRpcManagers(config, chainIds, "access-chain");
+};
+
+export const createAlchemyRpcManagers = (
+  config: Pick<AppConfig, "ALCHEMY_URL" | "RPC_TIMEOUT_MS" | "RPC_RETRY_MAX" | "RPC_RETRY_BACKOFF_MS">,
+  chainIds: number[],
+  endpointPrefix = "scan-chain",
+): {
+  managersByChain: Record<number, RpcManager>;
+  errors: string[];
+} => {
   const uniqueChainIds = Array.from(new Set(chainIds));
   const errors: string[] = [];
   const managersByChain: Record<number, RpcManager> = {};
@@ -39,7 +50,7 @@ export const createAccessPassRpcManagers = (
       const url = buildAlchemyUrlForChain(chainId, apiKey);
       managersByChain[chainId] = new RpcManager([
         {
-          name: `access-chain-${chainId}`,
+          name: `${endpointPrefix}-${chainId}`,
           url,
           priority: 1,
         },

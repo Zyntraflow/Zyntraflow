@@ -24,6 +24,9 @@ export default function Home() {
             <Link className="underline underline-offset-4" href="/dashboard">
               Dashboard
             </Link>
+            <Link className="underline underline-offset-4" href="/alerts">
+              Alerts
+            </Link>
             <Link className="underline underline-offset-4" href="/diagnostics">
               Diagnostics
             </Link>

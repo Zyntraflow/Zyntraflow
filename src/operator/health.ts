@@ -7,6 +7,11 @@ export type OperatorHealth = {
   lastTickOk: boolean;
   lastError: string | null;
   lastReportHash: string | null;
+  lastAlertsSent: number;
+  lastDiscordSentAt: string | null;
+  lastDiscordStatus: "sent" | "skipped" | "error" | null;
+  lastTelegramSentAt: string | null;
+  lastTelegramStatus: "sent" | "skipped" | "error" | null;
 };
 
 const healthState: OperatorHealth = {
@@ -15,6 +20,11 @@ const healthState: OperatorHealth = {
   lastTickOk: false,
   lastError: null,
   lastReportHash: null,
+  lastAlertsSent: 0,
+  lastDiscordSentAt: null,
+  lastDiscordStatus: null,
+  lastTelegramSentAt: null,
+  lastTelegramStatus: null,
 };
 
 const sanitizeError = (error: unknown): string => {
@@ -47,14 +57,35 @@ const persist = (baseDir?: string): void => {
 export const markTickStart = (baseDir?: string): void => {
   healthState.timestamp = new Date().toISOString();
   healthState.lastTickAt = healthState.timestamp;
+  healthState.lastAlertsSent = 0;
+  healthState.lastDiscordSentAt = null;
+  healthState.lastDiscordStatus = null;
+  healthState.lastTelegramSentAt = null;
+  healthState.lastTelegramStatus = null;
   persist(baseDir);
 };
 
-export const markTickSuccess = (reportHash?: string, baseDir?: string): void => {
+export const markTickSuccess = (
+  reportHash?: string,
+  channelState?: {
+    lastAlertsSent?: number;
+    lastDiscordSentAt?: string | null;
+    lastDiscordStatus?: "sent" | "skipped" | "error" | null;
+    lastTelegramSentAt?: string | null;
+    lastTelegramStatus?: "sent" | "skipped" | "error" | null;
+  },
+  baseDir?: string,
+): void => {
   healthState.timestamp = new Date().toISOString();
   healthState.lastTickAt = healthState.timestamp;
   healthState.lastTickOk = true;
   healthState.lastError = null;
+  const nextAlertsSent = channelState?.lastAlertsSent ?? 0;
+  healthState.lastAlertsSent = Number.isInteger(nextAlertsSent) && nextAlertsSent >= 0 ? nextAlertsSent : 0;
+  healthState.lastDiscordSentAt = channelState?.lastDiscordSentAt ?? null;
+  healthState.lastDiscordStatus = channelState?.lastDiscordStatus ?? "skipped";
+  healthState.lastTelegramSentAt = channelState?.lastTelegramSentAt ?? null;
+  healthState.lastTelegramStatus = channelState?.lastTelegramStatus ?? "skipped";
   if (reportHash) {
     healthState.lastReportHash = reportHash;
   }

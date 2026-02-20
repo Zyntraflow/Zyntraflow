@@ -7,6 +7,11 @@ export type StatusSnapshot = {
   operatorEnabled: boolean;
   lastTickOk: boolean;
   lastReportHash: string | null;
+  lastAlertsSent: number;
+  lastDiscordSentAt: string | null;
+  lastDiscordStatus: "sent" | "skipped" | "error" | null;
+  lastTelegramSentAt: string | null;
+  lastTelegramStatus: "sent" | "skipped" | "error" | null;
   premiumModeCapable: boolean;
   version: string;
 };
@@ -17,6 +22,11 @@ export type StatusSnapshotInput = {
   operatorEnabled: boolean;
   lastTickOk: boolean;
   lastReportHash?: string | null;
+  lastAlertsSent?: number;
+  lastDiscordSentAt?: string | null;
+  lastDiscordStatus?: "sent" | "skipped" | "error" | null;
+  lastTelegramSentAt?: string | null;
+  lastTelegramStatus?: "sent" | "skipped" | "error" | null;
   premiumModeCapable: boolean;
 };
 
@@ -28,6 +38,11 @@ export const buildStatusSnapshot = (input: StatusSnapshotInput): StatusSnapshot 
     operatorEnabled: input.operatorEnabled,
     lastTickOk: input.lastTickOk,
     lastReportHash: input.lastReportHash ?? null,
+    lastAlertsSent: input.lastAlertsSent ?? 0,
+    lastDiscordSentAt: input.lastDiscordSentAt ?? null,
+    lastDiscordStatus: input.lastDiscordStatus ?? null,
+    lastTelegramSentAt: input.lastTelegramSentAt ?? null,
+    lastTelegramStatus: input.lastTelegramStatus ?? null,
     premiumModeCapable: input.premiumModeCapable,
     version: APP_VERSION,
   };

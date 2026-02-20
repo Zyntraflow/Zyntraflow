@@ -1,12 +1,16 @@
 "use client";
 
 import Header from "../components/header";
+import ProfileSwitcher from "../components/profile-switcher";
 import ResponsiveGrid from "../components/ResponsiveGrid";
 import Section from "../components/Section";
+import { BRAND_LOGO_SVG } from "@/lib/branding";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PublicFeedCard from "../components/public-feed-card";
+
+export const dynamic = "force-dynamic";
 
 type PublicConfig = {
   ACCESS_PASS_CHAIN_ID: number | null;
@@ -101,7 +105,7 @@ export default function LaunchPage() {
           title="Zyntraflow Launch"
           description="Zyntraflow is a crypto-native, read-only arbitrage scanner. Free feed is public and signed. Premium details are encrypted for Access Pass holders."
           actions={
-            <Image src="/logo.svg" alt="Zyntraflow" width={88} height={88} className="h-16 w-16 rounded-lg" />
+            <Image src={BRAND_LOGO_SVG} alt="Zyntraflow" width={88} height={88} className="h-16 w-16 rounded-lg" />
           }
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -114,6 +118,8 @@ export default function LaunchPage() {
           </div>
           {copyMessage && <p className="mt-3 text-xs text-muted-foreground">{copyMessage}</p>}
         </Section>
+
+        <ProfileSwitcher />
 
         <ResponsiveGrid className="items-start">
           <Section
@@ -183,6 +189,39 @@ export default function LaunchPage() {
               >
                 Copy pull URL template
               </button>
+            </div>
+          </Section>
+
+          <Section
+            className="md:col-span-2 xl:col-span-3"
+            title="Community"
+            description="Join the community channels for release updates, support, and public feed discussions."
+          >
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="https://discord.gg/p7Ty4ERH"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-10 items-center rounded border px-3 py-2 text-sm hover:bg-muted"
+              >
+                Join Discord
+              </a>
+              <a
+                href="https://x.com/zyntraflow"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-10 items-center rounded border px-3 py-2 text-sm hover:bg-muted"
+              >
+                Follow on X
+              </a>
+              <a
+                href="https://github.com/Zyntraflow"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-10 items-center rounded border px-3 py-2 text-sm hover:bg-muted"
+              >
+                Star on GitHub
+              </a>
             </div>
           </Section>
         </ResponsiveGrid>

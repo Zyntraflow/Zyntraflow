@@ -66,6 +66,51 @@ const extractChainId = (output: string): number | undefined => {
   return undefined;
 };
 
+const extractAlertsSent = (output: string): number => {
+  const lineMatch = output.match(/Alerts sent:\s*(\d+)/i);
+  if (lineMatch?.[1]) {
+    return Number(lineMatch[1]);
+  }
+
+  const jsonMatch = output.match(/"alertsSent"\s*:\s*(\d+)/);
+  if (jsonMatch?.[1]) {
+    return Number(jsonMatch[1]);
+  }
+
+  return 0;
+};
+
+const extractChannelStatus = (
+  output: string,
+  channel: "Discord" | "Telegram",
+): "sent" | "skipped" | "error" | null => {
+  const match = output.match(new RegExp(`${channel}\\s+status:\\s*(sent|skipped|error)`, "i"));
+  if (!match?.[1]) {
+    return null;
+  }
+  const normalized = match[1].toLowerCase();
+  if (normalized === "sent" || normalized === "skipped" || normalized === "error") {
+    return normalized;
+  }
+  return null;
+};
+
+const extractChannelSentAt = (output: string, channel: "Discord" | "Telegram"): string | null => {
+  const match = output.match(new RegExp(`${channel}\\s+sent\\s+at:\\s*([^\\r\\n]+)`, "i"));
+  if (!match?.[1]) {
+    return null;
+  }
+  const value = match[1].trim();
+  if (value.toLowerCase() === "none") {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return new Date(parsed).toISOString();
+};
+
 const parseChainIdFromEnv = (): number => {
   const raw = process.env.CHAIN_ID?.trim() || process.env.ACCESS_PASS_CHAIN_ID?.trim();
   if (!raw) {
@@ -94,11 +139,31 @@ const sanitizeErrorMessage = (error: unknown): string => {
     .replace(/\b(?:0x)?[a-fA-F0-9]{64}\b/g, "[REDACTED_HEX_64]");
 };
 
-export const runOnce = async (): Promise<boolean> => {
+type TickOptions = {
+  profileId?: string;
+  chains?: number[];
+  pairs?: string[];
+};
+
+const buildTickCommand = (options?: TickOptions): string => {
+  const parts = [`${npmCommand} run dev -- --operator true`];
+  if (options?.profileId) {
+    parts.push(`--profile ${options.profileId}`);
+  }
+  if (options?.chains && options.chains.length > 0) {
+    parts.push(`--chains ${options.chains.join(",")}`);
+  }
+  if (options?.pairs && options.pairs.length > 0) {
+    parts.push(`--pairs ${options.pairs.join(",")}`);
+  }
+  return parts.join(" ");
+};
+
+export const runOnce = async (options?: TickOptions): Promise<boolean> => {
   markTickStart();
 
   try {
-    const { stdout } = await execAsync(`${npmCommand} run dev -- --operator true`, {
+    const { stdout } = await execAsync(buildTickCommand(options), {
       cwd: process.cwd(),
       env: process.env,
       maxBuffer: 10 * 1024 * 1024,
@@ -106,8 +171,19 @@ export const runOnce = async (): Promise<boolean> => {
     });
 
     const reportHash = extractReportHash(stdout ?? "");
+    const alertsSent = extractAlertsSent(stdout ?? "");
+    const discordStatus = extractChannelStatus(stdout ?? "", "Discord");
+    const discordSentAt = extractChannelSentAt(stdout ?? "", "Discord");
+    const telegramStatus = extractChannelStatus(stdout ?? "", "Telegram");
+    const telegramSentAt = extractChannelSentAt(stdout ?? "", "Telegram");
     const chainId = extractChainId(stdout ?? "") ?? parseChainIdFromEnv();
-    markTickSuccess(reportHash);
+    markTickSuccess(reportHash, {
+      lastAlertsSent: alertsSent,
+      lastDiscordStatus: discordStatus,
+      lastDiscordSentAt: discordSentAt,
+      lastTelegramStatus: telegramStatus,
+      lastTelegramSentAt: telegramSentAt,
+    });
     const health = getHealth();
     const statusSnapshot = buildStatusSnapshot({
       chainId,
@@ -115,6 +191,11 @@ export const runOnce = async (): Promise<boolean> => {
       operatorEnabled: true,
       lastTickOk: health.lastTickOk,
       lastReportHash: health.lastReportHash,
+      lastAlertsSent: health.lastAlertsSent,
+      lastDiscordSentAt: health.lastDiscordSentAt,
+      lastDiscordStatus: health.lastDiscordStatus,
+      lastTelegramSentAt: health.lastTelegramSentAt,
+      lastTelegramStatus: health.lastTelegramStatus,
       premiumModeCapable: readPremiumModeCapable(),
     });
     process.stdout.write("Operator tick ok\n");
@@ -130,6 +211,11 @@ export const runOnce = async (): Promise<boolean> => {
       operatorEnabled: true,
       lastTickOk: health.lastTickOk,
       lastReportHash: health.lastReportHash,
+      lastAlertsSent: health.lastAlertsSent,
+      lastDiscordSentAt: health.lastDiscordSentAt,
+      lastDiscordStatus: health.lastDiscordStatus,
+      lastTelegramSentAt: health.lastTelegramSentAt,
+      lastTelegramStatus: health.lastTelegramStatus,
       premiumModeCapable: readPremiumModeCapable(),
     });
     logger.error({ error: message, statusSnapshot }, "Operator tick failed");
@@ -142,10 +228,11 @@ export const runLoop = async (
   maxTicks = 0,
   jitterMs = 0,
   shouldContinue: () => boolean = () => true,
+  tickOptions?: TickOptions,
 ): Promise<void> => {
   let ticks = 0;
   while (shouldContinue()) {
-    await runOnce();
+    await runOnce(tickOptions);
     ticks += 1;
     if (maxTicks > 0 && ticks >= maxTicks) {
       return;
@@ -191,7 +278,17 @@ const main = async (): Promise<void> => {
   try {
     logger.info({ intervalSeconds, maxTicks, jitterMs }, "Operator loop started");
     process.stdout.write(`Operator loop started (interval=${intervalSeconds}s)\n`);
-    await runLoop(intervalSeconds, maxTicks, jitterMs, () => !shuttingDown);
+    await runLoop(
+      Math.max(10, intervalSeconds),
+      maxTicks,
+      jitterMs,
+      () => !shuttingDown,
+      {
+        profileId: cliArgs.profileId,
+        chains: cliArgs.chains,
+        pairs: cliArgs.pairs,
+      },
+    );
   } finally {
     logger.info("Operator shutdown clean");
     process.stdout.write("Operator shutdown clean\n");

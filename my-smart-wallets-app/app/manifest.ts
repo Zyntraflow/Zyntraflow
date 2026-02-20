@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { BRAND_LOGO_PNG, BRAND_LOGO_SVG } from "@/lib/branding";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -11,9 +12,14 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#0b1220",
     icons: [
       {
-        src: "/logo.svg",
+        src: BRAND_LOGO_SVG,
         sizes: "any",
         type: "image/svg+xml",
+      },
+      {
+        src: BRAND_LOGO_PNG,
+        sizes: "512x512",
+        type: "image/png",
       },
     ],
   };

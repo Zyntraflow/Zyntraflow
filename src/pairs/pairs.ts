@@ -10,6 +10,10 @@ export type PairConfig = {
   liquidityDepthHint: number;
 };
 
+export const toPairKey = (pair: Pick<PairConfig, "base" | "quote">): string => {
+  return `${pair.base.symbol}/${pair.quote.symbol}`.toUpperCase();
+};
+
 export const PAIRS: PairConfig[] = [
   {
     chainId: 1,
@@ -63,4 +67,21 @@ export const PAIRS: PairConfig[] = [
 
 export const getEnabledPairsForChain = (chainId: number): PairConfig[] => {
   return PAIRS.filter((pair) => pair.chainId === chainId && pair.enabled);
+};
+
+export const getEnabledPairKeysForChain = (chainId: number): string[] => {
+  return getEnabledPairsForChain(chainId).map((pair) => toPairKey(pair));
+};
+
+export const getEnabledPairsForChainByKeys = (
+  chainId: number,
+  pairKeys?: string[],
+): PairConfig[] => {
+  const pairs = getEnabledPairsForChain(chainId);
+  if (!pairKeys || pairKeys.length === 0) {
+    return pairs;
+  }
+
+  const allowed = new Set(pairKeys.map((pair) => pair.trim().toUpperCase()).filter((pair) => pair.length > 0));
+  return pairs.filter((pair) => allowed.has(toPairKey(pair)));
 };

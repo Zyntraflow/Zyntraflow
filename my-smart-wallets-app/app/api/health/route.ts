@@ -8,6 +8,11 @@ type OperatorHealth = {
   lastTickOk: boolean;
   lastError: string | null;
   lastReportHash: string | null;
+  lastAlertsSent: number;
+  lastDiscordSentAt: string | null;
+  lastDiscordStatus: "sent" | "skipped" | "error" | null;
+  lastTelegramSentAt: string | null;
+  lastTelegramStatus: "sent" | "skipped" | "error" | null;
 };
 
 const defaultHealth = (): OperatorHealth => ({
@@ -16,6 +21,11 @@ const defaultHealth = (): OperatorHealth => ({
   lastTickOk: false,
   lastError: null,
   lastReportHash: null,
+  lastAlertsSent: 0,
+  lastDiscordSentAt: null,
+  lastDiscordStatus: null,
+  lastTelegramSentAt: null,
+  lastTelegramStatus: null,
 });
 
 export async function GET(): Promise<Response> {
@@ -46,6 +56,11 @@ export async function GET(): Promise<Response> {
       lastTickOk: health.lastTickOk,
       lastReportHash: health.lastReportHash,
       lastError: health.lastError,
+      lastAlertsSent: health.lastAlertsSent,
+      lastDiscordSentAt: health.lastDiscordSentAt,
+      lastDiscordStatus: health.lastDiscordStatus,
+      lastTelegramSentAt: health.lastTelegramSentAt,
+      lastTelegramStatus: health.lastTelegramStatus,
     },
     {
       headers: {

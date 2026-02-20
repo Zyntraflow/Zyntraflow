@@ -7,6 +7,8 @@ import { decryptPremiumJson, type PremiumEncryptedPayload } from "@/lib/premiumD
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 
+export const dynamic = "force-dynamic";
+
 type PremiumPackage = PremiumEncryptedPayload & {
   header: Record<string, unknown>;
   signerAddress: string;

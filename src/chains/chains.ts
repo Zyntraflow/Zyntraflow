@@ -10,13 +10,13 @@ export const CHAINS: Record<number, ChainConfig> = {
     name: "mainnet",
     chainId: 1,
     nativeSymbol: "ETH",
-    rpcChainName: "ethereum-mainnet",
+    rpcChainName: "eth-mainnet",
   },
   10: {
     name: "optimism",
     chainId: 10,
     nativeSymbol: "ETH",
-    rpcChainName: "optimism-mainnet",
+    rpcChainName: "opt-mainnet",
   },
   137: {
     name: "polygon",
@@ -34,7 +34,7 @@ export const CHAINS: Record<number, ChainConfig> = {
     name: "arbitrum",
     chainId: 42161,
     nativeSymbol: "ETH",
-    rpcChainName: "arbitrum-mainnet",
+    rpcChainName: "arb-mainnet",
   },
 };
 

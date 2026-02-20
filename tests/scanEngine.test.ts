@@ -179,6 +179,8 @@ describe("runScan", () => {
     });
 
     expect(report.simulations.length).toBe(1);
+    expect(report.rankedOpportunities.length).toBe(1);
+    expect(report.rankedOpportunities[0].score).toBeGreaterThan(-1);
     const simulation = report.simulations[0];
     expect(simulation.simulation.gasCostEth).toBeGreaterThan(0);
     expect(typeof simulation.simulation.passesThreshold).toBe("boolean");
