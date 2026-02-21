@@ -7,15 +7,11 @@ import { QueryClient } from "@tanstack/react-query";
 import { chainNFTMintContractData } from "@/lib/chains";
 import { alchemy } from "@account-kit/infra";
 
-const API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
-if (!API_KEY) {
-  throw new Error("NEXT_PUBLIC_ALCHEMY_API_KEY is not set");
-}
-
-const SPONSORSHIP_POLICY_ID = process.env.NEXT_PUBLIC_ALCHEMY_POLICY_ID;
-if (!SPONSORSHIP_POLICY_ID) {
-  throw new Error("NEXT_PUBLIC_ALCHEMY_POLICY_ID is not set");
-}
+// Keep builds deterministic in environments where public wallet env vars are not set.
+// Wallet-specific features may be limited at runtime until real public values are provided.
+const API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || "public-placeholder";
+const SPONSORSHIP_POLICY_ID =
+  process.env.NEXT_PUBLIC_ALCHEMY_POLICY_ID || "public-placeholder";
 
 const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID ?? '') || 421614;
 const chain = chainNFTMintContractData[CHAIN_ID]?.chain;
