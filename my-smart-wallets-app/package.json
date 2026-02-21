@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "cross-env NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=8192 npm exec -- next build",
-    "start": "cross-env NODE_ENV=production next start -p 3000",
+    "start": "next start -p 3000",
     "lint": "next lint",
     "postinstall": "node scripts/postinstall.js"
   },
