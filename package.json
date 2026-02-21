@@ -14,7 +14,7 @@
     "gen:operator-signer": "ts-node scripts/generate-operator-signer.ts",
     "bootstrap:env": "ts-node scripts/bootstrap-local-env.ts",
     "prestart": "npm run preflight",
-    "prepare": "husky install",
+    "prepare": "node scripts/prepare-husky.mjs",
     "lint": "eslint .",
     "format": "prettier -w .",
     "test": "vitest run",
