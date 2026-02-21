@@ -4,6 +4,8 @@ import Header from "../components/header";
 import ProfileSwitcher from "../components/profile-switcher";
 import ResponsiveGrid from "../components/ResponsiveGrid";
 import Section from "../components/Section";
+import { filterAlerts, getChainFilterOptions } from "@/lib/alertsFilters";
+import { uiText } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Subscription, SubscriptionUnsigned } from "@/lib/subscriptionAuth";
 import type { UiScanProfile } from "@/lib/profiles";
@@ -47,11 +49,14 @@ const createNonce = (): string => {
 };
 
 export default function AlertsPage() {
+  const text = uiText.alerts;
   const [activeProfile, setActiveProfile] = useState<UiScanProfile | null>(null);
   const [alerts, setAlerts] = useState<AlertSnapshot>(defaultSnapshot);
   const [alertsMessage, setAlertsMessage] = useState<string>("Loading alerts...");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [chainFilter, setChainFilter] = useState<"all" | number>("all");
+  const [modeFilter, setModeFilter] = useState<"all" | "free" | "premium">("all");
 
   const [address, setAddress] = useState("");
   const [minNetProfitEth, setMinNetProfitEth] = useState("0.01");
@@ -107,6 +112,19 @@ export default function AlertsPage() {
         .map((value) => value.trim().toUpperCase())
         .filter((value) => value.length > 0),
     [pairsInput],
+  );
+
+  const availableChains = useMemo(() => getChainFilterOptions(alerts.global), [alerts.global]);
+
+  const filteredAlerts = useMemo(
+    () =>
+      filterAlerts({
+        events: alerts.global,
+        chainIdFilter: chainFilter,
+        modeFilter,
+        profileFilter: activeProfile,
+      }),
+    [activeProfile, alerts.global, chainFilter, modeFilter],
   );
 
   const copyText = useCallback(async (label: string, value: string | null | undefined) => {
@@ -232,7 +250,7 @@ export default function AlertsPage() {
       <Header />
       <main className="container mx-auto max-w-6xl px-4 py-8 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Alerts</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{text.pageTitle}</h1>
           <button
             type="button"
             className="min-h-10 rounded border px-3 py-2 text-sm hover:bg-muted"
@@ -252,17 +270,58 @@ export default function AlertsPage() {
         <ResponsiveGrid className="items-start">
           <Section
             className="md:col-span-2 xl:col-span-3"
-            title="Latest Alerts"
-            description="In-app notifications feed from /api/alerts/latest."
+            title={text.latestTitle}
+            description={text.latestDescription}
           >
             <p className="text-sm text-muted-foreground">{alertsMessage}</p>
             <p className="mt-1 text-xs text-muted-foreground">updatedAt: {alerts.updatedAt}</p>
-            {alerts.global.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">No alert events published yet.</p>
+            <div className="mt-3 grid gap-3 rounded border p-3 text-sm md:grid-cols-3">
+              <label className="grid gap-1">
+                <span>Chain filter</span>
+                <select
+                  className="min-h-10 rounded border bg-background px-3 py-2"
+                  value={chainFilter === "all" ? "all" : String(chainFilter)}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setChainFilter(next === "all" ? "all" : Number(next));
+                  }}
+                >
+                  <option value="all">All chains</option>
+                  {availableChains.map((chain) => (
+                    <option key={chain} value={chain}>
+                      {chain}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1">
+                <span>Mode filter</span>
+                <select
+                  className="min-h-10 rounded border bg-background px-3 py-2"
+                  value={modeFilter}
+                  onChange={(event) => setModeFilter(event.target.value as "all" | "free" | "premium")}
+                >
+                  <option value="all">All modes</option>
+                  <option value="free">Free</option>
+                  <option value="premium">Premium</option>
+                </select>
+              </label>
+              <div className="grid gap-1">
+                <span>Profile coverage</span>
+                <div className="min-h-10 rounded border px-3 py-2 text-xs text-muted-foreground">
+                  {activeProfile ? `${activeProfile.name} (${activeProfile.pairs.length} pairs)` : "All profiles"}
+                </div>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Showing {filteredAlerts.length} of {alerts.global.length} alerts.
+            </p>
+            {filteredAlerts.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">{text.noAlerts}</p>
             ) : (
               <>
                 <div className="mt-3 space-y-2 md:hidden">
-                  {alerts.global.slice(0, 10).map((event, index) => (
+                  {filteredAlerts.slice(0, 10).map((event, index) => (
                     <div key={`${event.reportHash}-${event.userAddress}-${index}`} className="rounded border p-3 text-sm">
                       <p className="font-medium">{event.pair}</p>
                       <p>chainId: {event.chainId}</p>
@@ -294,7 +353,7 @@ export default function AlertsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {alerts.global.slice(0, 10).map((event, index) => (
+                      {filteredAlerts.slice(0, 10).map((event, index) => (
                         <tr key={`${event.reportHash}-${event.userAddress}-${index}`} className="border-b last:border-b-0">
                           <td className="px-3 py-2">{event.pair}</td>
                           <td className="px-3 py-2">

@@ -3,6 +3,8 @@
 import Header from "@/app/components/header";
 import ResponsiveGrid from "@/app/components/ResponsiveGrid";
 import Section from "@/app/components/Section";
+import { uiText } from "@/lib/i18n";
+import { buildPremiumPackagePath, validatePremiumLookup } from "@/lib/premiumPackageApi";
 import { decryptPremiumJson, type PremiumEncryptedPayload } from "@/lib/premiumDecrypt";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
@@ -32,11 +34,15 @@ const isPremiumPackage = (value: unknown): value is PremiumPackage => {
 };
 
 export default function PremiumDecryptPage() {
+  const text = uiText.premiumDecrypt;
   const [packageJson, setPackageJson] = useState("");
   const [signature, setSignature] = useState("");
+  const [reportHashInput, setReportHashInput] = useState("");
+  const [addressInput, setAddressInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [decrypted, setDecrypted] = useState<unknown>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [fetchMessage, setFetchMessage] = useState<string | null>(null);
 
   const onDecrypt = useCallback(async () => {
     setError(null);
@@ -65,6 +71,39 @@ export default function PremiumDecryptPage() {
     }
   }, [packageJson, signature]);
 
+  const onFetchPackage = useCallback(async () => {
+    setError(null);
+    setFetchMessage(null);
+
+    const lookup = {
+      reportHash: reportHashInput,
+      address: addressInput,
+    };
+    const validationError = validatePremiumLookup(lookup);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    const path = buildPremiumPackagePath(lookup);
+    try {
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(payload.message ?? `Premium package lookup failed (${response.status}).`);
+      }
+
+      const payload = (await response.json()) as unknown;
+      if (!isPremiumPackage(payload)) {
+        throw new Error("Fetched premium package is missing required fields.");
+      }
+      setPackageJson(JSON.stringify(payload, null, 2));
+      setFetchMessage(`Loaded package from ${path}`);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "Unable to load premium package.");
+    }
+  }, [addressInput, reportHashInput]);
+
   const onCopy = useCallback(async () => {
     if (decrypted === null) {
       return;
@@ -87,7 +126,7 @@ export default function PremiumDecryptPage() {
       <Header />
       <main className="container mx-auto max-w-6xl px-4 py-8 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Premium Decrypt Tool</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{text.pageTitle}</h1>
           <Link href="/dashboard" className="text-sm underline underline-offset-4">
             Open Dashboard
           </Link>
@@ -95,40 +134,76 @@ export default function PremiumDecryptPage() {
 
         <ResponsiveGrid className="items-start">
           <Section
-            title="Warnings"
-            description="Decryption runs in-browser only. This page does not send package JSON or signature to any API."
+            title={text.warningsTitle}
+            description={text.warningsDescription}
             className="md:col-span-2 xl:col-span-3"
           >
             <ul className="list-disc space-y-1 pl-5 text-sm text-amber-700">
-              <li>Do not share your signature publicly.</li>
-              <li>Do not paste private keys into this tool.</li>
-              <li>No data is stored in localStorage by this page.</li>
+              <li>{text.warningDoNotShareSignature}</li>
+              <li>{text.warningNoPrivateKeys}</li>
+              <li>{text.warningNoStorage}</li>
             </ul>
           </Section>
 
-          <Section title="Paste Package" description="Paste PremiumPackage JSON payload.">
+          <Section title={text.fetchSectionTitle} description={text.fetchSectionDescription} className="md:col-span-2">
+            <div className="grid gap-3 text-sm">
+              <label className="grid gap-1">
+                <span>Report Hash</span>
+                <input
+                  className="min-h-12 rounded border px-3 py-2 font-mono text-xs"
+                  placeholder="0x...64 hex"
+                  value={reportHashInput}
+                  onChange={(event) => setReportHashInput(event.target.value)}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span>Wallet Address</span>
+                <input
+                  className="min-h-12 rounded border px-3 py-2 font-mono text-xs"
+                  placeholder="0x...40 hex"
+                  value={addressInput}
+                  onChange={(event) => setAddressInput(event.target.value)}
+                />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="min-h-11 rounded border px-4 py-2 text-sm hover:bg-muted" onClick={() => void onFetchPackage()}>
+                  Fetch package from API
+                </button>
+                <button
+                  type="button"
+                  className="min-h-11 rounded border px-4 py-2 text-sm hover:bg-muted"
+                  onClick={() => void navigator.clipboard.writeText(buildPremiumPackagePath({ reportHash: reportHashInput, address: addressInput }))}
+                >
+                  Copy fetch URL
+                </button>
+              </div>
+              {fetchMessage && <p className="text-xs text-muted-foreground break-all">{fetchMessage}</p>}
+            </div>
+          </Section>
+
+          <Section title={text.packageTitle} description={text.packageDescription}>
             <textarea
               id="premium-package-json"
-              className="min-h-56 w-full rounded border p-3 font-mono text-xs"
+              className="min-h-56 w-full rounded border p-3 font-mono text-xs md:min-h-64"
               placeholder='{"header":{},"ciphertextBase64":"...","ivBase64":"...","saltBase64":"...","signerAddress":"0x...","signature":"0x..."}'
               value={packageJson}
               onChange={(event) => setPackageJson(event.target.value)}
             />
           </Section>
 
-          <Section title="Paste Signature" description="Paste the same login signature used to unlock premium mode.">
+          <Section title={text.signatureTitle} description={text.signatureDescription}>
             <textarea
               id="user-signature"
-              className="min-h-56 w-full rounded border p-3 font-mono text-xs"
+              className="min-h-56 w-full rounded border p-3 font-mono text-xs md:min-h-64"
               placeholder="0x..."
               value={signature}
               onChange={(event) => setSignature(event.target.value)}
             />
             <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" className="min-h-10 rounded border px-4 py-2 text-sm hover:bg-muted" onClick={() => void onDecrypt()}>
+              <button type="button" className="min-h-11 rounded border px-4 py-2 text-sm hover:bg-muted" onClick={() => void onDecrypt()}>
                 Decrypt package
               </button>
-              <button type="button" className="min-h-10 rounded border px-4 py-2 text-sm hover:bg-muted" onClick={() => void onCopy()}>
+              <button type="button" className="min-h-11 rounded border px-4 py-2 text-sm hover:bg-muted" onClick={() => void onCopy()}>
                 Copy decrypted output
               </button>
             </div>
@@ -136,7 +211,7 @@ export default function PremiumDecryptPage() {
             {copyMessage && <p className="mt-2 text-xs text-muted-foreground">{copyMessage}</p>}
           </Section>
 
-          <Section title="Decrypted Output" description="Decoded ScanReport data (client-side decrypted)." className="md:col-span-2 xl:col-span-3">
+          <Section title={text.outputTitle} description={text.outputDescription} className="md:col-span-2 xl:col-span-3">
             {prettyOutput ? (
               <pre className="max-h-[32rem] overflow-auto rounded bg-muted p-3 text-xs">{prettyOutput}</pre>
             ) : (
