@@ -1,6 +1,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
+COPY scripts/postinstall.js ./scripts/postinstall.js
 RUN npm ci
 
 FROM node:20-alpine AS builder
@@ -14,6 +15,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 COPY package*.json ./
+COPY scripts/postinstall.js ./scripts/postinstall.js
 RUN npm ci --omit=dev
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
