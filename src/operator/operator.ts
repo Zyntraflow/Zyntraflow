@@ -1,5 +1,7 @@
 import { exec } from "child_process";
 import dotenv from "dotenv";
+import { existsSync } from "fs";
+import path from "path";
 import { promisify } from "util";
 import { parseCliArgs } from "../cli/args";
 import { logger } from "../logger";
@@ -177,7 +179,13 @@ type TickOptions = {
 };
 
 const buildTickCommand = (options?: TickOptions): string => {
-  const parts = [`${npmCommand} run dev -- --operator true`];
+  const distIndexPath = path.join(process.cwd(), "dist", "index.js");
+  const useCompiledRuntime = runtimeIsProduction() && existsSync(distIndexPath);
+  const baseCommand = useCompiledRuntime
+    ? "node dist/index.js --operator true"
+    : `${npmCommand} run dev -- --operator true`;
+
+  const parts = [baseCommand];
   if (options?.profileId) {
     parts.push(`--profile ${options.profileId}`);
   }
@@ -189,6 +197,9 @@ const buildTickCommand = (options?: TickOptions): string => {
   }
   return parts.join(" ");
 };
+
+const runtimeIsProduction = (): boolean =>
+  (process.env.NODE_ENV || "").trim().toLowerCase() === "production";
 
 export const runOnce = async (options?: TickOptions): Promise<boolean> => {
   markTickStart();
