@@ -432,7 +432,7 @@ const main = async (): Promise<void> => {
     ) as Record<number, RpcProviderClient>;
     const stuckTxResult = await checkForStuckPendingTransactions({
       providersByChain: executionProvidersByChain,
-      pendingTimeoutMinutes: config.EXECUTION.PENDING_TIMEOUT_MINUTES,
+      pendingTimeoutSeconds: config.EXECUTION.PENDING_TIMEOUT_SECONDS,
       killSwitchFile: config.EXECUTION.KILL_SWITCH_FILE,
     });
     const stuckTxAlert = stuckTxResult.triggered ? buildStuckTxAlert(stuckTxResult.stuck[0]) : null;
@@ -547,6 +547,7 @@ const main = async (): Promise<void> => {
     const executionStatusPath = writeExecutionStatusSnapshot(executionStatus);
     process.stdout.write(`Execution kill switch active: ${String(executionStatus.killSwitchActive)}\n`);
     process.stdout.write(`Execution pending tx count: ${executionStatus.pendingTxCount}\n`);
+    process.stdout.write(`Execution pending tx age seconds: ${executionStatus.pendingTxAgeSeconds}\n`);
     process.stdout.write(`Execution daily loss remaining eth: ${executionStatus.dailyLossRemainingEth}\n`);
 
     const enrichedReport = premiumDecision.includeRicherReport
@@ -864,6 +865,7 @@ const main = async (): Promise<void> => {
           txHash: executionResult.txHash ?? null,
           killSwitchActive: executionStatus.killSwitchActive,
           pendingTxCount: executionStatus.pendingTxCount,
+          pendingTxAgeSeconds: executionStatus.pendingTxAgeSeconds,
           dailyLossRemainingEth: executionStatus.dailyLossRemainingEth,
           replayWindowSeconds: executionStatus.replayWindowSeconds,
           statusPath: executionStatusPath,

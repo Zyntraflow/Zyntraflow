@@ -75,14 +75,42 @@ export const reserveNextNonce = async (
   const key = nonceKey(chainId, address);
   const current = state.entries[key];
   const onChainPending = await provider.getTransactionCount(address, "pending");
-  const nextNonce = Math.max(onChainPending, current?.nextNonce ?? 0);
+  const nextNonce = Math.max(onChainPending, (current?.nextNonce ?? -1) + 1);
   state.entries[key] = {
-    nextNonce: nextNonce + 1,
+    nextNonce,
     updatedAt: new Date().toISOString(),
   };
   state.updatedAt = new Date().toISOString();
   writeNonceState(state, baseDir);
   return nextNonce;
+};
+
+export const getNextNonce = reserveNextNonce;
+
+export const updateNonce = (
+  chainId: number,
+  address: string,
+  nonce: number,
+  baseDir = process.cwd(),
+): void => {
+  if (!Number.isInteger(nonce) || nonce < 0) {
+    return;
+  }
+
+  const state = readNonceState(baseDir);
+  const key = nonceKey(chainId, address);
+  const current = state.entries[key];
+  if (current && current.nextNonce > nonce) {
+    state.updatedAt = new Date().toISOString();
+    writeNonceState(state, baseDir);
+    return;
+  }
+  state.entries[key] = {
+    nextNonce: nonce,
+    updatedAt: new Date().toISOString(),
+  };
+  state.updatedAt = new Date().toISOString();
+  writeNonceState(state, baseDir);
 };
 
 export const clearNonceCacheEntry = (chainId: number, address: string, baseDir = process.cwd()): void => {

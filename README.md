@@ -94,7 +94,8 @@ Key controls:
 - daily loss limit
 - cooldown between sends
 - replay protection window (`EXECUTION_REPLAY_WINDOW_SECONDS`)
-- stuck-tx timeout (`EXECUTION_PENDING_TIMEOUT_MINUTES`)
+- stuck-tx timeout (`EXECUTION_PENDING_TIMEOUT_SECONDS`)
+- max consecutive send failures (`EXECUTION_MAX_CONSECUTIVE_SEND_FAILS`)
 - to-address allowlist
 - kill switch file (`KILL_SWITCH_FILE`)
 
@@ -111,8 +112,11 @@ Execution safety policy:
 Manual approval tool (explicit CLI args required):
 
 ```bash
-npm run approve:execution -- --chain-id 8453 --token 0xToken --spender 0xSpender --amount 0.01 --decimals 18
+npm run approve -- --token 0xToken --spender 0xSpender --amount 0.01 --decimals 18 --i-understand
 ```
+
+Execution rollout runbook:
+- `docs/runbook.md`
 
 ## Security Gates
 

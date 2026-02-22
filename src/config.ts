@@ -10,6 +10,7 @@ export type ExecutionConfig = {
   PRIVATE_KEY?: string;
   APPROVALS_ENABLED: boolean;
   APPROVALS_MAX_AMOUNT: number;
+  APPROVALS_ALLOWLIST: string[];
   MAX_TRADE_ETH: number;
   MAX_GAS_GWEI: number;
   MAX_SLIPPAGE_BPS: number;
@@ -17,7 +18,9 @@ export type ExecutionConfig = {
   DAILY_LOSS_LIMIT_ETH: number;
   COOLDOWN_SECONDS: number;
   REPLAY_WINDOW_SECONDS: number;
-  PENDING_TIMEOUT_MINUTES: number;
+  ALLOW_REPLAY: boolean;
+  PENDING_TIMEOUT_SECONDS: number;
+  MAX_CONSECUTIVE_SEND_FAILS: number;
   TO_ADDRESS_ALLOWLIST: string[];
   KILL_SWITCH_FILE: string;
 };
@@ -115,7 +118,8 @@ const parseBooleanEnv = (
     | "ENABLE_TELEGRAM_ALERTS"
     | "OPERATOR_ENABLE"
     | "EXECUTION_ENABLED"
-    | "APPROVALS_ENABLED",
+    | "APPROVALS_ENABLED"
+    | "EXECUTION_ALLOW_REPLAY",
   fallback: boolean,
 ): boolean => {
   const value = process.env[name];
@@ -166,7 +170,8 @@ const parseIntegerEnvWithDefault = (
     | "EXECUTION_MAX_SLIPPAGE_BPS"
     | "EXECUTION_COOLDOWN_SECONDS"
     | "EXECUTION_REPLAY_WINDOW_SECONDS"
-    | "EXECUTION_PENDING_TIMEOUT_MINUTES",
+    | "EXECUTION_PENDING_TIMEOUT_SECONDS"
+    | "EXECUTION_MAX_CONSECUTIVE_SEND_FAILS",
   defaultValue: number,
   options?: { min?: number },
 ): number => {
@@ -314,6 +319,31 @@ const parseExecutionAllowlist = (): string[] => {
   });
 };
 
+const parseApprovalsAllowlist = (): string[] => {
+  const raw = process.env.APPROVALS_ALLOWLIST_JSON?.trim();
+  if (!raw || raw === "") {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new MissingConfigError("APPROVALS_ALLOWLIST_JSON must be valid JSON.");
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new MissingConfigError("APPROVALS_ALLOWLIST_JSON must be a JSON array of addresses.");
+  }
+
+  return parsed.map((entry, index) => {
+    if (typeof entry !== "string" || !isHexAddress(entry)) {
+      throw new MissingConfigError(`APPROVALS_ALLOWLIST_JSON contains invalid address at index ${index}.`);
+    }
+    return entry;
+  });
+};
+
 const parseChainIdListEnv = (name: "ACCESS_PASS_ACCEPTED_CHAINS"): number[] => {
   const entries = parseCsvEnv(name);
   if (entries.length === 0) {
@@ -452,7 +482,8 @@ export const loadConfig = (): AppConfig => {
       CHAIN_ID: parseIntegerEnvWithDefault("EXECUTION_CHAIN_ID", 8453, { min: 1 }),
       PRIVATE_KEY: executionPrivateKey,
       APPROVALS_ENABLED: parseBooleanEnv("APPROVALS_ENABLED", false),
-      APPROVALS_MAX_AMOUNT: parseDecimalEnvWithDefault("APPROVALS_MAX_AMOUNT", 0.05, { min: 0 }),
+      APPROVALS_MAX_AMOUNT: parseDecimalEnvWithDefault("APPROVALS_MAX_AMOUNT", 0, { min: 0 }),
+      APPROVALS_ALLOWLIST: parseApprovalsAllowlist(),
       MAX_TRADE_ETH: parseDecimalEnvWithDefault("EXECUTION_MAX_TRADE_ETH", 0.02, { min: 0 }),
       MAX_GAS_GWEI: parseDecimalEnvWithDefault("EXECUTION_MAX_GAS_GWEI", 5, { min: 0 }),
       MAX_SLIPPAGE_BPS: parseIntegerEnvWithDefault("EXECUTION_MAX_SLIPPAGE_BPS", 30, { min: 0 }),
@@ -460,7 +491,9 @@ export const loadConfig = (): AppConfig => {
       DAILY_LOSS_LIMIT_ETH: parseDecimalEnvWithDefault("EXECUTION_DAILY_LOSS_LIMIT_ETH", 0.01, { min: 0 }),
       COOLDOWN_SECONDS: parseIntegerEnvWithDefault("EXECUTION_COOLDOWN_SECONDS", 30, { min: 0 }),
       REPLAY_WINDOW_SECONDS: parseIntegerEnvWithDefault("EXECUTION_REPLAY_WINDOW_SECONDS", 3600, { min: 1 }),
-      PENDING_TIMEOUT_MINUTES: parseIntegerEnvWithDefault("EXECUTION_PENDING_TIMEOUT_MINUTES", 10, { min: 1 }),
+      ALLOW_REPLAY: parseBooleanEnv("EXECUTION_ALLOW_REPLAY", false),
+      PENDING_TIMEOUT_SECONDS: parseIntegerEnvWithDefault("EXECUTION_PENDING_TIMEOUT_SECONDS", 180, { min: 1 }),
+      MAX_CONSECUTIVE_SEND_FAILS: parseIntegerEnvWithDefault("EXECUTION_MAX_CONSECUTIVE_SEND_FAILS", 3, { min: 1 }),
       TO_ADDRESS_ALLOWLIST: parseExecutionAllowlist(),
       KILL_SWITCH_FILE: executionKillSwitchPath,
     },

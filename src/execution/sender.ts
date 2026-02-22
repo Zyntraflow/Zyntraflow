@@ -4,6 +4,7 @@ import { Wallet, parseEther, parseUnits } from "ethers";
 import type { ExecutionConfig } from "../config";
 import type { RpcProviderClient } from "../rpc/manager";
 import { withTimeout } from "../rpc/safeCall";
+import { createKillSwitch, isKillSwitchActive } from "./killSwitch";
 import {
   evaluateExecutionPolicy,
   recordExecutionAttempt,
@@ -12,7 +13,7 @@ import {
 } from "./policy";
 import { simulateTransaction } from "./simulator";
 import { hasSufficientAllowance } from "./adapters/uniswapV3SwapRouter";
-import { reserveNextNonce } from "./nonceManager";
+import { getNextNonce, updateNonce } from "./nonceManager";
 import { clearPendingTx, recordPendingTx } from "./stuckTxGuard";
 import type { ExecutionPlan, ExecutionSendResult } from "./types";
 
@@ -61,6 +62,18 @@ const resolveGasPriceGwei = (plan: ExecutionPlan, config: ExecutionConfig): numb
     return config.MAX_GAS_GWEI;
   }
   return Math.min(candidate, config.MAX_GAS_GWEI);
+};
+
+const enforceFailureKillSwitch = (
+  config: ExecutionConfig,
+  consecutiveFailures: number,
+): void => {
+  if (consecutiveFailures < config.MAX_CONSECUTIVE_SEND_FAILS) {
+    return;
+  }
+  if (!isKillSwitchActive(config.KILL_SWITCH_FILE)) {
+    createKillSwitch(config.KILL_SWITCH_FILE);
+  }
 };
 
 const ensurePreapprovedTokens = async (
@@ -126,6 +139,7 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
       }),
       input.baseDir,
     );
+    enforceFailureKillSwitch(input.config, updated.consecutiveFailures);
     return {
       status: "sim_failed",
       simulationError: simulation.error,
@@ -142,7 +156,7 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
   }
 
   const wallet = new Wallet(input.config.PRIVATE_KEY, input.provider as never);
-  const reservedNonce = await reserveNextNonce(input.provider, input.plan.chainId, wallet.address, input.baseDir);
+  const reservedNonce = await getNextNonce(input.provider, input.plan.chainId, wallet.address, input.baseDir);
   const preapprovalResult = await ensurePreapprovedTokens(input.provider, wallet.address, input.plan);
   if (preapprovalResult) {
     recordExecutionAttempt(input.plan, "preapproval_missing", input.baseDir);
@@ -164,6 +178,7 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
       gasLimit,
       nonce: reservedNonce,
     });
+    updateNonce(input.plan.chainId, wallet.address, reservedNonce, input.baseDir);
     recordPendingTx(
       {
         txHash: response.hash,
@@ -202,6 +217,7 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
       },
       input.baseDir,
     );
+    enforceFailureKillSwitch(input.config, updated.consecutiveFailures);
 
     appendTxLog(
       {
@@ -250,6 +266,7 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
       }),
       input.baseDir,
     );
+    enforceFailureKillSwitch(input.config, updated.consecutiveFailures);
     appendTxLog(
       {
         ts: new Date().toISOString(),

@@ -1,7 +1,7 @@
 import { Contract, Wallet, parseUnits } from "ethers";
 import type { ExecutionConfig } from "../config";
 import type { RpcProviderClient } from "../rpc/manager";
-import { reserveNextNonce } from "./nonceManager";
+import { getNextNonce, updateNonce } from "./nonceManager";
 
 const ERC20_ABI = [
   "function approve(address spender, uint256 amount) returns (bool)",
@@ -48,17 +48,25 @@ export const approveToken = async (input: ApproveTokenInput): Promise<{ txHash: 
     throw new Error("EXECUTION_PRIVATE_KEY is required for approvals.");
   }
 
-  const token = normalizeAddress(input.token, "token");
-  const spender = normalizeAddress(input.spender, "spender");
-  const amountWei = parseAmount(input.amount, input.decimals);
-  const maxAmountWei = parseAmount(input.config.APPROVALS_MAX_AMOUNT.toString(), input.decimals);
-  if (amountWei > maxAmountWei) {
-    throw new Error("Requested approval amount exceeds APPROVALS_MAX_AMOUNT cap.");
+  const token = normalizeAddress(input.token, "token").toLowerCase();
+  const spender = normalizeAddress(input.spender, "spender").toLowerCase();
+  const amountWeiRaw = parseAmount(input.amount, input.decimals);
+  const allowlist = new Set(input.config.APPROVALS_ALLOWLIST.map((address) => address.toLowerCase()));
+  if (allowlist.size > 0 && (!allowlist.has(token) || !allowlist.has(spender))) {
+    throw new Error("Token or spender is not in APPROVALS_ALLOWLIST_JSON.");
   }
+  const maxAmount = input.config.APPROVALS_MAX_AMOUNT;
+  const amountWeiCap = maxAmount > 0 ? parseAmount(maxAmount.toString(), input.decimals) : 0n;
+  const amountWei = maxAmount > 0 && amountWeiRaw > amountWeiCap ? amountWeiCap : amountWeiRaw;
 
   const wallet = new Wallet(input.config.PRIVATE_KEY, input.provider as never);
-  const nonce = await reserveNextNonce(input.provider, input.chainId, wallet.address, input.baseDir);
+  const nonce = await getNextNonce(input.provider, input.chainId, wallet.address, input.baseDir);
   const contract = new Contract(token, ERC20_ABI, wallet);
   const response = await contract.approve(spender, amountWei, { nonce });
-  return { txHash: response.hash as string };
+  updateNonce(input.chainId, wallet.address, nonce, input.baseDir);
+  return {
+    txHash: response.hash as string,
+  };
 };
+
+export const approveERC20 = approveToken;

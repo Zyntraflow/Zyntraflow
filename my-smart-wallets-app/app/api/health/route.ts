@@ -36,8 +36,9 @@ type ExecutionPublicStatus = {
   dailyLossRemainingEth: number;
   cooldownSeconds: number;
   replayWindowSeconds: number;
-  pendingTimeoutMinutes: number;
+  pendingTimeoutSeconds: number;
   pendingTxCount: number;
+  pendingTxAgeSeconds: number;
   killSwitchActive: boolean;
   lastTradeAt: string | null;
   lastTxHash: string | null;
@@ -79,8 +80,9 @@ const defaultExecutionStatus = (): ExecutionPublicStatus => ({
   dailyLossRemainingEth: 0,
   cooldownSeconds: 0,
   replayWindowSeconds: 0,
-  pendingTimeoutMinutes: 0,
+  pendingTimeoutSeconds: 0,
   pendingTxCount: 0,
+  pendingTxAgeSeconds: 0,
   killSwitchActive: false,
   lastTradeAt: null,
   lastTxHash: null,
@@ -140,7 +142,10 @@ export async function GET(): Promise<Response> {
       lastExecutionStatus: executionStatus.lastExecutionStatus ?? health.lastExecutionStatus,
       lastExecutionReason: executionStatus.lastExecutionReason ?? health.lastExecutionReason,
       lastTradeAt: executionStatus.lastTradeAt ?? health.lastTradeAt,
+      lastExecutionAt: executionStatus.lastTradeAt ?? health.lastTradeAt,
       lastTxHash: executionStatus.lastTxHash ?? health.lastTxHash,
+      killSwitchPresent: executionStatus.killSwitchActive,
+      pendingTxAgeSeconds: executionStatus.pendingTxAgeSeconds,
       executionCaps: {
         approvalsEnabled: executionStatus.approvalsEnabled,
         approvalsMaxAmount: executionStatus.approvalsMaxAmount,
@@ -151,12 +156,13 @@ export async function GET(): Promise<Response> {
         dailyLossLimitEth: executionStatus.dailyLossLimitEth,
         cooldownSeconds: executionStatus.cooldownSeconds,
         replayWindowSeconds: executionStatus.replayWindowSeconds,
-        pendingTimeoutMinutes: executionStatus.pendingTimeoutMinutes,
+        pendingTimeoutSeconds: executionStatus.pendingTimeoutSeconds,
       },
       executionState: {
         dailyLossEth: executionStatus.dailyLossEth,
         dailyLossRemainingEth: executionStatus.dailyLossRemainingEth,
         pendingTxCount: executionStatus.pendingTxCount,
+        pendingTxAgeSeconds: executionStatus.pendingTxAgeSeconds,
         killSwitchActive: executionStatus.killSwitchActive,
       },
     },

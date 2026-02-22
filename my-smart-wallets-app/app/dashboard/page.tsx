@@ -28,7 +28,10 @@ type OperatorHealth = {
   lastExecutionStatus: "disabled" | "blocked" | "sim_failed" | "sent" | "error" | null;
   lastExecutionReason: string | null;
   lastTradeAt: string | null;
+  lastExecutionAt?: string | null;
   lastTxHash: string | null;
+  killSwitchPresent?: boolean;
+  pendingTxAgeSeconds?: number;
   executionCaps?: {
     approvalsEnabled: boolean;
     approvalsMaxAmount: number;
@@ -39,12 +42,13 @@ type OperatorHealth = {
     dailyLossLimitEth: number;
     cooldownSeconds: number;
     replayWindowSeconds: number;
-    pendingTimeoutMinutes: number;
+    pendingTimeoutSeconds: number;
   };
   executionState?: {
     dailyLossEth: number;
     dailyLossRemainingEth: number;
     pendingTxCount: number;
+    pendingTxAgeSeconds?: number;
     killSwitchActive: boolean;
   };
 };
@@ -241,7 +245,7 @@ export default function DashboardPage() {
         )}
         {health?.executionEnabled && (
           <div className="rounded-md border border-amber-400/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            EXECUTION ENABLED: live transaction sending is active. Keep wallet balance limited and monitor kill switch status.
+            EXECUTION ENABLED — HOT WALLET ACTIVE
           </div>
         )}
 
@@ -411,16 +415,18 @@ export default function DashboardPage() {
                 <p>enabled: {String(health.executionEnabled)}</p>
                 <p>status: {health.lastExecutionStatus ?? "Not available"}</p>
                 <p>reason: {health.lastExecutionReason ?? "None"}</p>
-                <p>lastTradeAt: {health.lastTradeAt ?? "Not available"}</p>
+                <p>lastExecutionAt: {health.lastExecutionAt ?? health.lastTradeAt ?? "Not available"}</p>
                 <p className="break-all">lastTxHash: {health.lastTxHash ?? "Not available"}</p>
-                <p>killSwitchActive: {String(health.executionState?.killSwitchActive ?? false)}</p>
+                <p>killSwitchPresent: {String(health.killSwitchPresent ?? health.executionState?.killSwitchActive ?? false)}</p>
                 <p>pendingTxCount: {health.executionState?.pendingTxCount ?? 0}</p>
+                <p>pendingTxAgeSeconds: {health.pendingTxAgeSeconds ?? health.executionState?.pendingTxAgeSeconds ?? 0}</p>
                 <p>dailyLossRemainingEth: {(health.executionState?.dailyLossRemainingEth ?? 0).toFixed(6)}</p>
                 <p>maxTradeEth: {health.executionCaps?.maxTradeEth ?? 0}</p>
                 <p>maxGasGwei: {health.executionCaps?.maxGasGwei ?? 0}</p>
                 <p>maxSlippageBps: {health.executionCaps?.maxSlippageBps ?? 0}</p>
                 <p>dailyLossLimitEth: {health.executionCaps?.dailyLossLimitEth ?? 0}</p>
                 <p>cooldownSeconds: {health.executionCaps?.cooldownSeconds ?? 0}</p>
+                <p>pendingTimeoutSeconds: {health.executionCaps?.pendingTimeoutSeconds ?? 0}</p>
               </div>
             )}
           </Section>

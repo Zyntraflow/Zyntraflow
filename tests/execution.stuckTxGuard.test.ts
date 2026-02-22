@@ -46,7 +46,7 @@ describe("execution stuck tx guard", () => {
     };
     const result = await checkForStuckPendingTransactions({
       providersByChain: { 8453: provider as never },
-      pendingTimeoutMinutes: 1,
+      pendingTimeoutSeconds: 60,
       killSwitchFile: killSwitch,
       nowMs,
       baseDir: dir,
@@ -58,7 +58,7 @@ describe("execution stuck tx guard", () => {
 
     const second = await checkForStuckPendingTransactions({
       providersByChain: { 8453: provider as never },
-      pendingTimeoutMinutes: 1,
+      pendingTimeoutSeconds: 60,
       killSwitchFile: killSwitch,
       nowMs: nowMs + 5_000,
       baseDir: dir,
@@ -86,7 +86,7 @@ describe("execution stuck tx guard", () => {
     };
     const result = await checkForStuckPendingTransactions({
       providersByChain: { 8453: provider as never },
-      pendingTimeoutMinutes: 1,
+      pendingTimeoutSeconds: 60,
       killSwitchFile: path.join(dir, "reports", "KILL_SWITCH"),
       baseDir: dir,
     });

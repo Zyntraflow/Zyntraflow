@@ -22,6 +22,7 @@ export type StuckTxCheckResult = {
   triggered: boolean;
   stuck: PendingExecutionTx[];
   pendingCount: number;
+  oldestPendingAgeSeconds: number;
 };
 
 const PENDING_FILE = path.join("reports", "execution", "pending.json");
@@ -111,7 +112,7 @@ export const clearPendingTx = (txHash: string, baseDir = process.cwd()): void =>
 export const checkForStuckPendingTransactions = async (
   input: {
     providersByChain: Record<number, RpcProviderClient>;
-    pendingTimeoutMinutes: number;
+    pendingTimeoutSeconds: number;
     killSwitchFile: string;
     nowMs?: number;
     baseDir?: string;
@@ -119,7 +120,7 @@ export const checkForStuckPendingTransactions = async (
 ): Promise<StuckTxCheckResult> => {
   const baseDir = input.baseDir ?? process.cwd();
   const nowMs = input.nowMs ?? Date.now();
-  const timeoutMs = Math.max(1, input.pendingTimeoutMinutes) * 60_000;
+  const timeoutMs = Math.max(1, input.pendingTimeoutSeconds) * 1000;
   const state = readPendingState(baseDir);
   const nextPending: PendingExecutionTx[] = [];
   const stuck: PendingExecutionTx[] = [];
@@ -168,10 +169,15 @@ export const checkForStuckPendingTransactions = async (
     baseDir,
   );
 
+  const oldestSentAt = nextPending.reduce((oldest, entry) => Math.min(oldest, entry.sentAtMs), Number.POSITIVE_INFINITY);
+  const oldestPendingAgeSeconds =
+    Number.isFinite(oldestSentAt) && oldestSentAt > 0 ? Math.max(0, Math.floor((nowMs - oldestSentAt) / 1000)) : 0;
+
   return {
     triggered,
     stuck,
     pendingCount: nextPending.length,
+    oldestPendingAgeSeconds,
   };
 };
 

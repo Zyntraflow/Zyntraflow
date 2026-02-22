@@ -19,8 +19,9 @@ export type ExecutionStatusSnapshot = {
   dailyLossRemainingEth: number;
   cooldownSeconds: number;
   replayWindowSeconds: number;
-  pendingTimeoutMinutes: number;
+  pendingTimeoutSeconds: number;
   pendingTxCount: number;
+  pendingTxAgeSeconds: number;
   killSwitchActive: boolean;
   lastTradeAt: string | null;
   lastTxHash: string | null;
@@ -39,6 +40,11 @@ export const buildExecutionStatusSnapshot = (
 ): ExecutionStatusSnapshot => {
   const state = readExecutionPolicyState(baseDir);
   const pending = readPendingState(baseDir);
+  const oldestSentAt = pending.pending.reduce((oldest, entry) => Math.min(oldest, entry.sentAtMs), Number.POSITIVE_INFINITY);
+  const pendingTxAgeSeconds =
+    Number.isFinite(oldestSentAt) && oldestSentAt > 0
+      ? Math.max(0, Math.floor((Date.now() - oldestSentAt) / 1000))
+      : 0;
   const dailyLossRemainingEth = Math.max(0, config.DAILY_LOSS_LIMIT_ETH - state.dailyLossEth);
   return {
     enabled: config.ENABLED,
@@ -53,8 +59,9 @@ export const buildExecutionStatusSnapshot = (
     dailyLossRemainingEth,
     cooldownSeconds: config.COOLDOWN_SECONDS,
     replayWindowSeconds: config.REPLAY_WINDOW_SECONDS,
-    pendingTimeoutMinutes: config.PENDING_TIMEOUT_MINUTES,
+    pendingTimeoutSeconds: config.PENDING_TIMEOUT_SECONDS,
     pendingTxCount: pending.pending.length,
+    pendingTxAgeSeconds,
     killSwitchActive: isKillSwitchActive(config.KILL_SWITCH_FILE),
     lastTradeAt: executionResult.lastTradeAt ?? state.lastTradeAt,
     lastTxHash: executionResult.txHash ?? state.lastTxHash,
