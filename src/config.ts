@@ -2,6 +2,21 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.operator", override: false, quiet: true });
 dotenv.config({ path: ".env", override: false, quiet: true });
+dotenv.config({ path: ".env.execution", override: false, quiet: true });
+
+export type ExecutionConfig = {
+  ENABLED: boolean;
+  CHAIN_ID: number;
+  PRIVATE_KEY?: string;
+  MAX_TRADE_ETH: number;
+  MAX_GAS_GWEI: number;
+  MAX_SLIPPAGE_BPS: number;
+  MIN_NET_PROFIT_ETH: number;
+  DAILY_LOSS_LIMIT_ETH: number;
+  COOLDOWN_SECONDS: number;
+  TO_ADDRESS_ALLOWLIST: string[];
+  KILL_SWITCH_FILE: string;
+};
 
 export type AppConfig = {
   ALCHEMY_URL: string;
@@ -47,6 +62,7 @@ export type AppConfig = {
   RPC_RETRY_MAX: number;
   RPC_RETRY_BACKOFF_MS: number;
   RPC_TIMEOUT_MS: number;
+  EXECUTION: ExecutionConfig;
 };
 
 export class MissingConfigError extends Error {
@@ -93,7 +109,8 @@ const parseBooleanEnv = (
     | "ENABLE_PUBLIC_METRICS"
     | "ENABLE_DISCORD_ALERTS"
     | "ENABLE_TELEGRAM_ALERTS"
-    | "OPERATOR_ENABLE",
+    | "OPERATOR_ENABLE"
+    | "EXECUTION_ENABLED",
   fallback: boolean,
 ): boolean => {
   const value = process.env[name];
@@ -139,7 +156,10 @@ const parseIntegerEnvWithDefault = (
     | "RPC_RETRY_BACKOFF_MS"
     | "RPC_TIMEOUT_MS"
     | "DISCORD_ALERTS_MIN_INTERVAL_SECONDS"
-    | "TELEGRAM_ALERTS_MIN_INTERVAL_SECONDS",
+    | "TELEGRAM_ALERTS_MIN_INTERVAL_SECONDS"
+    | "EXECUTION_CHAIN_ID"
+    | "EXECUTION_MAX_SLIPPAGE_BPS"
+    | "EXECUTION_COOLDOWN_SECONDS",
   defaultValue: number,
   options?: { min?: number },
 ): number => {
@@ -152,6 +172,29 @@ const parseIntegerEnvWithDefault = (
   const min = options?.min ?? 0;
   if (!Number.isInteger(parsed) || parsed < min) {
     throw new MissingConfigError(`${name} must be an integer >= ${min}.`);
+  }
+
+  return parsed;
+};
+
+const parseDecimalEnvWithDefault = (
+  name:
+    | "EXECUTION_MAX_TRADE_ETH"
+    | "EXECUTION_MAX_GAS_GWEI"
+    | "EXECUTION_MIN_NET_PROFIT_ETH"
+    | "EXECUTION_DAILY_LOSS_LIMIT_ETH",
+  defaultValue: number,
+  options?: { min?: number },
+): number => {
+  const value = process.env[name];
+  if (!value || value.trim() === "") {
+    return defaultValue;
+  }
+
+  const parsed = Number(value.trim());
+  const min = options?.min ?? 0;
+  if (!Number.isFinite(parsed) || parsed < min) {
+    throw new MissingConfigError(`${name} must be a number >= ${min}.`);
   }
 
   return parsed;
@@ -220,6 +263,47 @@ const parseOptionalPremiumSignerKey = (): string | undefined => {
   }
 
   return normalized.startsWith("0x") ? normalized : `0x${normalized}`;
+};
+
+const parseOptionalExecutionPrivateKey = (): string | undefined => {
+  const value = process.env.EXECUTION_PRIVATE_KEY;
+  if (!value || value.trim() === "") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!/^(0x)?[a-fA-F0-9]{64}$/.test(normalized)) {
+    throw new MissingConfigError("EXECUTION_PRIVATE_KEY must be a 64-hex private key (optionally 0x-prefixed).");
+  }
+
+  return normalized.startsWith("0x") ? normalized : `0x${normalized}`;
+};
+
+const parseExecutionAllowlist = (): string[] => {
+  const raw = process.env.EXECUTION_TO_ADDRESS_ALLOWLIST_JSON?.trim();
+  if (!raw || raw === "") {
+    return [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new MissingConfigError("EXECUTION_TO_ADDRESS_ALLOWLIST_JSON must be valid JSON.");
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new MissingConfigError("EXECUTION_TO_ADDRESS_ALLOWLIST_JSON must be a JSON array of addresses.");
+  }
+
+  return parsed.map((entry, index) => {
+    if (typeof entry !== "string" || !isHexAddress(entry)) {
+      throw new MissingConfigError(
+        `EXECUTION_TO_ADDRESS_ALLOWLIST_JSON contains invalid address at index ${index}.`,
+      );
+    }
+    return entry;
+  });
 };
 
 const parseChainIdListEnv = (name: "ACCESS_PASS_ACCEPTED_CHAINS"): number[] => {
@@ -298,6 +382,12 @@ export const loadConfig = (): AppConfig => {
 
   const acceptedChainsFromEnv = parseChainIdListEnv("ACCESS_PASS_ACCEPTED_CHAINS");
   const acceptedChains = acceptedChainsFromEnv.length > 0 ? acceptedChainsFromEnv : Object.keys(contractsByChain).map(Number);
+  const executionKillSwitchPath = process.env.KILL_SWITCH_FILE?.trim() || "./reports/KILL_SWITCH";
+  const executionPrivateKey = parseOptionalExecutionPrivateKey();
+  const executionEnabled = parseBooleanEnv("EXECUTION_ENABLED", false);
+  if (executionEnabled && !executionPrivateKey) {
+    throw new MissingConfigError("EXECUTION_ENABLED=true requires EXECUTION_PRIVATE_KEY in local env.");
+  }
 
   return {
     ALCHEMY_URL: requireEnv("ALCHEMY_URL"),
@@ -349,5 +439,18 @@ export const loadConfig = (): AppConfig => {
     RPC_RETRY_MAX: parseIntegerEnvWithDefault("RPC_RETRY_MAX", 2, { min: 0 }),
     RPC_RETRY_BACKOFF_MS: parseIntegerEnvWithDefault("RPC_RETRY_BACKOFF_MS", 250, { min: 0 }),
     RPC_TIMEOUT_MS: parseIntegerEnvWithDefault("RPC_TIMEOUT_MS", 8000, { min: 1 }),
+    EXECUTION: {
+      ENABLED: executionEnabled,
+      CHAIN_ID: parseIntegerEnvWithDefault("EXECUTION_CHAIN_ID", 8453, { min: 1 }),
+      PRIVATE_KEY: executionPrivateKey,
+      MAX_TRADE_ETH: parseDecimalEnvWithDefault("EXECUTION_MAX_TRADE_ETH", 0.02, { min: 0 }),
+      MAX_GAS_GWEI: parseDecimalEnvWithDefault("EXECUTION_MAX_GAS_GWEI", 5, { min: 0 }),
+      MAX_SLIPPAGE_BPS: parseIntegerEnvWithDefault("EXECUTION_MAX_SLIPPAGE_BPS", 30, { min: 0 }),
+      MIN_NET_PROFIT_ETH: parseDecimalEnvWithDefault("EXECUTION_MIN_NET_PROFIT_ETH", 0.002, { min: 0 }),
+      DAILY_LOSS_LIMIT_ETH: parseDecimalEnvWithDefault("EXECUTION_DAILY_LOSS_LIMIT_ETH", 0.01, { min: 0 }),
+      COOLDOWN_SECONDS: parseIntegerEnvWithDefault("EXECUTION_COOLDOWN_SECONDS", 30, { min: 0 }),
+      TO_ADDRESS_ALLOWLIST: parseExecutionAllowlist(),
+      KILL_SWITCH_FILE: executionKillSwitchPath,
+    },
   };
 };

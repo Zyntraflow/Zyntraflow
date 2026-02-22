@@ -1,4 +1,4 @@
-import { getAddress } from "ethers";
+import { getAddress, Wallet } from "ethers";
 import { buildAlertEvents, persistAlerts, type AlertEvent } from "./alerts/alertEngine";
 import { sendDiscordAlert, type DiscordSendResult } from "./alerts/discordSender";
 import { checkAccessPassAcrossChains } from "./access/accessPass";
@@ -28,6 +28,10 @@ import { signFreeSummary } from "./reporting/freeSummarySigned";
 import { computeReportHash } from "./reporting/reportHash";
 import { writeScanReport } from "./reporting/reportWriter";
 import { buildStatusSnapshot } from "./reporting/statusSnapshot";
+import { buildUniswapV3ExecutionPlan } from "./execution/adapters/uniswapV3SwapRouter";
+import { executePlan } from "./execution/sender";
+import { readExecutionPolicyState } from "./execution/policy";
+import type { ExecutionPlan, ExecutionSendResult } from "./execution/types";
 import { loadRpcEndpoints } from "./rpc/endpoints";
 import { RpcManager, type RpcProviderClient } from "./rpc/manager";
 import { closeRpcManagers, createAccessPassRpcManagers, createAlchemyRpcManagers, getProvidersByChain } from "./rpc/multiChain";
@@ -136,6 +140,24 @@ const buildQuoteSourcesForChain = (
   }
 
   return sources;
+};
+
+const buildPairLookup = (scanTasks: Array<{ chainId: number; pairs: PairConfig[] }>): Map<string, PairConfig> => {
+  const lookup = new Map<string, PairConfig>();
+  for (const task of scanTasks) {
+    for (const pair of task.pairs) {
+      lookup.set(`${task.chainId}:${toPairKey(pair)}`, pair);
+    }
+  }
+  return lookup;
+};
+
+const deriveExpectedPrice = (quoteInputs: Array<{ price: number }>): number => {
+  const prices = quoteInputs.map((quote) => quote.price).filter((price) => Number.isFinite(price) && price > 0);
+  if (prices.length === 0) {
+    return 0;
+  }
+  return Math.max(...prices);
 };
 
 const main = async (): Promise<void> => {
@@ -386,6 +408,106 @@ const main = async (): Promise<void> => {
     process.stdout.write(`Chains scanned: ${(scanReport.chainIds ?? [scanReport.chainId]).length}\n`);
 
     const reportHash = computeReportHash(scanReport);
+    const executionPairLookup = buildPairLookup(scanTasks.map((task) => ({ chainId: task.chainId, pairs: task.pairs })));
+    const executionState = readExecutionPolicyState();
+    let executionPlan: ExecutionPlan | null = null;
+    let executionResult: ExecutionSendResult = {
+      status: config.EXECUTION.ENABLED ? "blocked" : "disabled",
+      reason: config.EXECUTION.ENABLED ? "NO_ELIGIBLE_EXECUTION_PLAN" : "EXECUTION_DISABLED",
+      lastTradeAt: executionState.lastTradeAt,
+    };
+
+    const topRankedOpportunity = scanReport.rankedOpportunities[0] ?? null;
+    if (topRankedOpportunity) {
+      const pairLookupKey = `${topRankedOpportunity.chainId}:${topRankedOpportunity.pair.toUpperCase()}`;
+      const matchedPair = executionPairLookup.get(pairLookupKey);
+      if (matchedPair) {
+        const executionWalletAddress = config.EXECUTION.PRIVATE_KEY
+          ? new Wallet(config.EXECUTION.PRIVATE_KEY).address
+          : "0x0000000000000000000000000000000000000000";
+        const slippageBps = Math.max(0, Math.round(topRankedOpportunity.simulation.slippagePercent * 10_000));
+        const expectedPrice = deriveExpectedPrice(topRankedOpportunity.quoteInputs);
+
+        try {
+          executionPlan = buildUniswapV3ExecutionPlan({
+            chainId: topRankedOpportunity.chainId,
+            pairKey: topRankedOpportunity.pair,
+            recipient: executionWalletAddress,
+            tradeSizeEth: matchedPair.tradeSizeEth,
+            expectedPrice,
+            expectedNetProfitEth: topRankedOpportunity.simulation.netProfitEth,
+            gasGwei: config.EXECUTION.MAX_GAS_GWEI,
+            slippageBps: Math.min(slippageBps, config.EXECUTION.MAX_SLIPPAGE_BPS),
+            reportHash,
+            opportunityId: `${topRankedOpportunity.chainId}:${topRankedOpportunity.pair}:${topRankedOpportunity.buyFrom}->${topRankedOpportunity.sellTo}`,
+          });
+        } catch (error) {
+          executionResult = {
+            status: config.EXECUTION.ENABLED ? "blocked" : "disabled",
+            reason: sanitizeErrorMessage(error),
+            lastTradeAt: executionState.lastTradeAt,
+          };
+        }
+      } else {
+        executionResult = {
+          status: config.EXECUTION.ENABLED ? "blocked" : "disabled",
+          reason: "NO_MATCHING_PAIR_FOR_TOP_OPPORTUNITY",
+          lastTradeAt: executionState.lastTradeAt,
+        };
+      }
+    } else {
+      executionResult = {
+        status: config.EXECUTION.ENABLED ? "blocked" : "disabled",
+        reason: "NO_RANKED_OPPORTUNITIES",
+        lastTradeAt: executionState.lastTradeAt,
+      };
+    }
+
+    if (executionPlan) {
+      if (!config.EXECUTION.ENABLED) {
+        executionResult = {
+          status: "disabled",
+          reason: "EXECUTION_DISABLED_DRY_RUN",
+          lastTradeAt: executionState.lastTradeAt,
+        };
+        logger.info(
+          {
+            chainId: executionPlan.chainId,
+            to: executionPlan.to,
+            reportHash: executionPlan.reportHash,
+            opportunityId: executionPlan.opportunityId,
+          },
+          "Execution disabled (dry run)",
+        );
+      } else {
+        const executionProvider = scanBestByChain[executionPlan.chainId]?.provider;
+        if (!executionProvider) {
+          executionResult = {
+            status: "blocked",
+            reason: "CHAIN_PROVIDER_NOT_AVAILABLE_FOR_EXECUTION",
+            lastTradeAt: executionState.lastTradeAt,
+          };
+        } else {
+          executionResult = await executePlan({
+            provider: executionProvider,
+            plan: executionPlan,
+            config: config.EXECUTION,
+            timeoutMs: config.RPC_TIMEOUT_MS,
+            retryMax: config.RPC_RETRY_MAX,
+            retryBackoffMs: config.RPC_RETRY_BACKOFF_MS,
+          });
+        }
+      }
+    }
+    if (!config.EXECUTION.ENABLED) {
+      process.stdout.write("Execution disabled (dry run)\n");
+    }
+
+    process.stdout.write(`Execution status: ${executionResult.status}\n`);
+    process.stdout.write(`Execution reason: ${executionResult.reason ?? "none"}\n`);
+    process.stdout.write(`Execution tx hash: ${executionResult.txHash ?? "none"}\n`);
+    process.stdout.write(`Execution last trade at: ${executionResult.lastTradeAt ?? "none"}\n`);
+
     const enrichedReport = premiumDecision.includeRicherReport
       ? {
           ...scanReport,
@@ -396,6 +518,21 @@ const main = async (): Promise<void> => {
               tokenId: accessStatus.tokenId,
               minBalance: accessStatus.minBalance,
             },
+          },
+          execution: {
+            status: executionResult.status,
+            reason: executionResult.reason ?? null,
+            txHash: executionResult.txHash ?? null,
+            lastTradeAt: executionResult.lastTradeAt ?? null,
+            plan: executionPlan
+              ? {
+                  chainId: executionPlan.chainId,
+                  to: executionPlan.to,
+                  valueEth: executionPlan.valueEth,
+                  expectedNetProfitEth: executionPlan.expectedNetProfitEth,
+                  opportunityId: executionPlan.opportunityId,
+                }
+              : null,
           },
         }
       : scanReport;
@@ -647,6 +784,11 @@ const main = async (): Promise<void> => {
       lastDiscordStatus: discordResult.status,
       lastTelegramSentAt: telegramResult.sentAt,
       lastTelegramStatus: telegramResult.status,
+      executionEnabled: config.EXECUTION.ENABLED,
+      lastExecutionStatus: executionResult.status,
+      lastExecutionReason: executionResult.reason ?? null,
+      lastTradeAt: executionResult.lastTradeAt ?? null,
+      lastTxHash: executionResult.txHash ?? null,
       premiumModeCapable: Boolean(config.PREMIUM_SIGNER_KEY),
     });
 
@@ -671,6 +813,21 @@ const main = async (): Promise<void> => {
           maxConcurrency: cappedConcurrency,
           accessChain: matchedAccessChain,
           accessErrors,
+        },
+        execution: {
+          enabled: config.EXECUTION.ENABLED,
+          status: executionResult.status,
+          reason: executionResult.reason ?? null,
+          lastTradeAt: executionResult.lastTradeAt ?? null,
+          txHash: executionResult.txHash ?? null,
+          plan: executionPlan
+            ? {
+                chainId: executionPlan.chainId,
+                to: executionPlan.to,
+                valueEth: executionPlan.valueEth,
+                opportunityId: executionPlan.opportunityId,
+              }
+            : null,
         },
         reportHash,
         scanReport: enrichedReport,

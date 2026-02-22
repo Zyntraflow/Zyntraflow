@@ -16,6 +16,11 @@ type OperatorHealth = {
   lastDiscordStatus: "sent" | "skipped" | "error" | null;
   lastTelegramSentAt: string | null;
   lastTelegramStatus: "sent" | "skipped" | "error" | null;
+  executionEnabled: boolean;
+  lastExecutionStatus: "disabled" | "blocked" | "sim_failed" | "sent" | "error" | null;
+  lastExecutionReason: string | null;
+  lastTradeAt: string | null;
+  lastTxHash: string | null;
 };
 
 const defaultHealth = (): OperatorHealth => ({
@@ -32,6 +37,11 @@ const defaultHealth = (): OperatorHealth => ({
   lastDiscordStatus: null,
   lastTelegramSentAt: null,
   lastTelegramStatus: null,
+  executionEnabled: false,
+  lastExecutionStatus: null,
+  lastExecutionReason: null,
+  lastTradeAt: null,
+  lastTxHash: null,
 });
 
 export async function GET(): Promise<Response> {
@@ -70,6 +80,11 @@ export async function GET(): Promise<Response> {
       lastDiscordStatus: health.lastDiscordStatus,
       lastTelegramSentAt: health.lastTelegramSentAt,
       lastTelegramStatus: health.lastTelegramStatus,
+      executionEnabled: health.executionEnabled,
+      lastExecutionStatus: health.lastExecutionStatus,
+      lastExecutionReason: health.lastExecutionReason,
+      lastTradeAt: health.lastTradeAt,
+      lastTxHash: health.lastTxHash,
     },
     {
       headers: {

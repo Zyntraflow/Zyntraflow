@@ -12,6 +12,7 @@ const discordBotTokenName = "DISCORD_BOT_TOKEN";
 const discordChannelIdName = "DISCORD_CHANNEL_ID";
 const telegramBotTokenName = "TELEGRAM_BOT_TOKEN";
 const telegramChatIdName = "TELEGRAM_CHAT_ID";
+const executionPrivateKeyName = "EXECUTION_PRIVATE_KEY";
 
 const redactPaths = [
   privateFieldName,
@@ -44,6 +45,9 @@ const redactPaths = [
   telegramChatIdName,
   `*.${telegramChatIdName}`,
   `config.${telegramChatIdName}`,
+  executionPrivateKeyName,
+  `*.${executionPrivateKeyName}`,
+  `config.${executionPrivateKeyName}`,
   "authorization",
   "*.authorization",
   "ALCHEMY_URL",

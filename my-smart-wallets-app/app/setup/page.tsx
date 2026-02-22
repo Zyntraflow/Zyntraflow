@@ -11,6 +11,10 @@ type HealthPayload = {
   lastTickAt: string | null;
   lastTickOk: boolean;
   lastReportHash: string | null;
+  executionEnabled?: boolean;
+  lastExecutionStatus?: "disabled" | "blocked" | "sim_failed" | "sent" | "error" | null;
+  lastExecutionReason?: string | null;
+  lastTradeAt?: string | null;
 };
 
 type ReadinessPayload = {
@@ -188,6 +192,22 @@ export default function SetupPage() {
               <li>Check `docker compose ps` and container logs (`caddy`, `web`, `operator`).</li>
               <li>If `/api/feed/latest` is 404, wait for one operator tick or run a bounded operator tick.</li>
             </ol>
+          </Section>
+
+          <Section
+            className="md:col-span-2 xl:col-span-3"
+            title="Execution Safety"
+            description="Execution is high risk and should stay disabled until dry-runs are consistently stable."
+          >
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              <li>Fund the execution wallet with limited funds only.</li>
+              <li>Keep `EXECUTION_ENABLED=false` until policy checks and simulations are stable for multiple days.</li>
+              <li>Set a kill switch file (`reports/KILL_SWITCH`) to disable all sends instantly.</li>
+              <li>Current status: {health?.lastExecutionStatus ?? "unknown"}.</li>
+              <li>Execution enabled: {health?.executionEnabled === undefined ? "unknown" : String(health.executionEnabled)}.</li>
+              <li>Last execution reason: {health?.lastExecutionReason ?? "none"}.</li>
+              <li>Last trade time: {health?.lastTradeAt ?? "none"}.</li>
+            </ul>
           </Section>
         </ResponsiveGrid>
       </main>

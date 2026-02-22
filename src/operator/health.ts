@@ -15,6 +15,11 @@ export type OperatorHealth = {
   lastDiscordStatus: "sent" | "skipped" | "error" | null;
   lastTelegramSentAt: string | null;
   lastTelegramStatus: "sent" | "skipped" | "error" | null;
+  executionEnabled: boolean;
+  lastExecutionStatus: "disabled" | "blocked" | "sim_failed" | "sent" | "error" | null;
+  lastExecutionReason: string | null;
+  lastTradeAt: string | null;
+  lastTxHash: string | null;
 };
 
 const healthState: OperatorHealth = {
@@ -31,6 +36,11 @@ const healthState: OperatorHealth = {
   lastDiscordStatus: null,
   lastTelegramSentAt: null,
   lastTelegramStatus: null,
+  executionEnabled: false,
+  lastExecutionStatus: null,
+  lastExecutionReason: null,
+  lastTradeAt: null,
+  lastTxHash: null,
 };
 
 const sanitizeError = (error: unknown): string => {
@@ -68,6 +78,9 @@ export const markTickStart = (baseDir?: string): void => {
   healthState.lastDiscordStatus = null;
   healthState.lastTelegramSentAt = null;
   healthState.lastTelegramStatus = null;
+  healthState.lastExecutionStatus = null;
+  healthState.lastExecutionReason = null;
+  healthState.lastTxHash = null;
   persist(baseDir);
 };
 
@@ -79,6 +92,11 @@ export const markTickSuccess = (
     lastDiscordStatus?: "sent" | "skipped" | "error" | null;
     lastTelegramSentAt?: string | null;
     lastTelegramStatus?: "sent" | "skipped" | "error" | null;
+    executionEnabled?: boolean;
+    lastExecutionStatus?: "disabled" | "blocked" | "sim_failed" | "sent" | "error" | null;
+    lastExecutionReason?: string | null;
+    lastTradeAt?: string | null;
+    lastTxHash?: string | null;
   },
   baseDir?: string,
 ): void => {
@@ -92,6 +110,11 @@ export const markTickSuccess = (
   healthState.lastDiscordStatus = channelState?.lastDiscordStatus ?? "skipped";
   healthState.lastTelegramSentAt = channelState?.lastTelegramSentAt ?? null;
   healthState.lastTelegramStatus = channelState?.lastTelegramStatus ?? "skipped";
+  healthState.executionEnabled = channelState?.executionEnabled ?? false;
+  healthState.lastExecutionStatus = channelState?.lastExecutionStatus ?? "disabled";
+  healthState.lastExecutionReason = channelState?.lastExecutionReason ?? null;
+  healthState.lastTradeAt = channelState?.lastTradeAt ?? null;
+  healthState.lastTxHash = channelState?.lastTxHash ?? null;
   if (reportHash) {
     healthState.lastReportHash = reportHash;
   }

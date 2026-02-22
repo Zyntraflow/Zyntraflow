@@ -24,6 +24,11 @@ type OperatorHealth = {
   lastDiscordStatus: "sent" | "skipped" | "error" | null;
   lastTelegramSentAt: string | null;
   lastTelegramStatus: "sent" | "skipped" | "error" | null;
+  executionEnabled: boolean;
+  lastExecutionStatus: "disabled" | "blocked" | "sim_failed" | "sent" | "error" | null;
+  lastExecutionReason: string | null;
+  lastTradeAt: string | null;
+  lastTxHash: string | null;
 };
 
 type FeedHistoryResponse = {
@@ -369,9 +374,22 @@ export default function DashboardPage() {
                 <p>lastAlertsSent: {health.lastAlertsSent}</p>
                 <p>lastDiscordStatus: {health.lastDiscordStatus ?? "Not available"}</p>
                 <p>lastDiscordSentAt: {health.lastDiscordSentAt ?? "Not available"}</p>
-                <p>lastTelegramStatus: {health.lastTelegramStatus ?? "Not available"}</p>
-                <p>lastTelegramSentAt: {health.lastTelegramSentAt ?? "Not available"}</p>
-                <p>lastError: {health.lastError ?? "None"}</p>
+              <p>lastTelegramStatus: {health.lastTelegramStatus ?? "Not available"}</p>
+              <p>lastTelegramSentAt: {health.lastTelegramSentAt ?? "Not available"}</p>
+              <p>lastError: {health.lastError ?? "None"}</p>
+            </div>
+          )}
+          </Section>
+
+          <Section title="Execution Status" description="Optional isolated execution module state and most recent transaction metadata.">
+            {!health && <p className="text-sm text-muted-foreground">Execution state unavailable until health loads.</p>}
+            {health && (
+              <div className="space-y-1 text-sm">
+                <p>enabled: {String(health.executionEnabled)}</p>
+                <p>status: {health.lastExecutionStatus ?? "Not available"}</p>
+                <p>reason: {health.lastExecutionReason ?? "None"}</p>
+                <p>lastTradeAt: {health.lastTradeAt ?? "Not available"}</p>
+                <p className="break-all">lastTxHash: {health.lastTxHash ?? "Not available"}</p>
               </div>
             )}
           </Section>

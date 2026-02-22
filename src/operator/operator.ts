@@ -141,6 +141,63 @@ const extractChannelSentAt = (output: string, channel: "Discord" | "Telegram"): 
   return new Date(parsed).toISOString();
 };
 
+const extractExecutionStatus = (
+  output: string,
+): "disabled" | "blocked" | "sim_failed" | "sent" | "error" | null => {
+  const match = output.match(/Execution status:\s*(disabled|blocked|sim_failed|sent|error)/i);
+  if (!match?.[1]) {
+    return null;
+  }
+  const normalized = match[1].toLowerCase();
+  if (
+    normalized === "disabled" ||
+    normalized === "blocked" ||
+    normalized === "sim_failed" ||
+    normalized === "sent" ||
+    normalized === "error"
+  ) {
+    return normalized;
+  }
+  return null;
+};
+
+const extractExecutionReason = (output: string): string | null => {
+  const match = output.match(/Execution reason:\s*([^\r\n]+)/i);
+  if (!match?.[1]) {
+    return null;
+  }
+  const reason = match[1].trim();
+  return reason.toLowerCase() === "none" ? null : reason;
+};
+
+const extractExecutionTxHash = (output: string): string | null => {
+  const match = output.match(/Execution tx hash:\s*([^\r\n]+)/i);
+  if (!match?.[1]) {
+    return null;
+  }
+  const txHash = match[1].trim();
+  if (txHash.toLowerCase() === "none") {
+    return null;
+  }
+  return /^0x[a-fA-F0-9]{64}$/.test(txHash) ? txHash : null;
+};
+
+const extractExecutionLastTradeAt = (output: string): string | null => {
+  const match = output.match(/Execution last trade at:\s*([^\r\n]+)/i);
+  if (!match?.[1]) {
+    return null;
+  }
+  const value = match[1].trim();
+  if (value.toLowerCase() === "none") {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return new Date(parsed).toISOString();
+};
+
 const parseChainIdFromEnv = (): number => {
   const raw = process.env.CHAIN_ID?.trim() || process.env.ACCESS_PASS_CHAIN_ID?.trim();
   if (!raw) {
@@ -218,6 +275,10 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
     const discordSentAt = extractChannelSentAt(stdout ?? "", "Discord");
     const telegramStatus = extractChannelStatus(stdout ?? "", "Telegram");
     const telegramSentAt = extractChannelSentAt(stdout ?? "", "Telegram");
+    const executionStatus = extractExecutionStatus(stdout ?? "");
+    const executionReason = extractExecutionReason(stdout ?? "");
+    const executionTxHash = extractExecutionTxHash(stdout ?? "");
+    const executionLastTradeAt = extractExecutionLastTradeAt(stdout ?? "");
     const profileId = extractProfileId(stdout ?? "") ?? options?.profileId ?? "unknown";
     const chainsScanned = extractChainsScanned(stdout ?? "") ?? options?.chains?.length ?? 1;
     const chainId = extractChainId(stdout ?? "") ?? parseChainIdFromEnv();
@@ -227,6 +288,11 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
       lastDiscordSentAt: discordSentAt,
       lastTelegramStatus: telegramStatus,
       lastTelegramSentAt: telegramSentAt,
+      executionEnabled: parseBoolean(process.env.EXECUTION_ENABLED, false),
+      lastExecutionStatus: executionStatus,
+      lastExecutionReason: executionReason,
+      lastTradeAt: executionLastTradeAt,
+      lastTxHash: executionTxHash,
     });
     writeReadiness({
       lastTickOk: true,
@@ -249,6 +315,11 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
       lastDiscordStatus: health.lastDiscordStatus,
       lastTelegramSentAt: health.lastTelegramSentAt,
       lastTelegramStatus: health.lastTelegramStatus,
+      executionEnabled: parseBoolean(process.env.EXECUTION_ENABLED, false),
+      lastExecutionStatus: health.lastExecutionStatus,
+      lastExecutionReason: health.lastExecutionReason,
+      lastTradeAt: health.lastTradeAt,
+      lastTxHash: health.lastTxHash,
       premiumModeCapable: readPremiumModeCapable(),
     });
     process.stdout.write("Operator tick ok\n");
@@ -277,6 +348,11 @@ export const runOnce = async (options?: TickOptions): Promise<boolean> => {
       lastDiscordStatus: health.lastDiscordStatus,
       lastTelegramSentAt: health.lastTelegramSentAt,
       lastTelegramStatus: health.lastTelegramStatus,
+      executionEnabled: parseBoolean(process.env.EXECUTION_ENABLED, false),
+      lastExecutionStatus: health.lastExecutionStatus,
+      lastExecutionReason: health.lastExecutionReason,
+      lastTradeAt: health.lastTradeAt,
+      lastTxHash: health.lastTxHash,
       premiumModeCapable: readPremiumModeCapable(),
     });
     logger.error({ error: message, statusSnapshot }, "Operator tick failed");
