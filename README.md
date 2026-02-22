@@ -87,11 +87,14 @@ cp .env.execution.example .env.execution
 
 Key controls:
 - `EXECUTION_ENABLED=false` by default
+- manual approvals gate (`APPROVALS_ENABLED`)
 - chain allowlist (`EXECUTION_CHAIN_ID`)
 - max trade, gas cap, slippage cap
 - min net profit threshold
 - daily loss limit
 - cooldown between sends
+- replay protection window (`EXECUTION_REPLAY_WINDOW_SECONDS`)
+- stuck-tx timeout (`EXECUTION_PENDING_TIMEOUT_MINUTES`)
 - to-address allowlist
 - kill switch file (`KILL_SWITCH_FILE`)
 
@@ -101,7 +104,15 @@ Kill switch:
 Execution safety policy:
 - scanner/feeds remain read-only regardless
 - execution path requires policy pass + simulation pass before send
+- nonce manager prevents tx nonce collisions
+- pending tx guard can trigger kill switch + channel alerts
 - no private keys or auth tokens logged
+
+Manual approval tool (explicit CLI args required):
+
+```bash
+npm run approve:execution -- --chain-id 8453 --token 0xToken --spender 0xSpender --amount 0.01 --decimals 18
+```
 
 ## Security Gates
 

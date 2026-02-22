@@ -9,6 +9,15 @@ type RpcNetwork = {
 export type RpcProviderClient = {
   getNetwork: () => Promise<RpcNetwork>;
   getBlockNumber: () => Promise<number>;
+  call?: (transaction: { to?: string; data?: string; value?: bigint }) => Promise<string>;
+  estimateGas?: (transaction: { to?: string; data?: string; value?: bigint }) => Promise<bigint>;
+  getTransactionCount?: (
+    address: string,
+    blockTag?: "latest" | "pending" | number,
+  ) => Promise<number>;
+  getTransactionReceipt?: (
+    txHash: string,
+  ) => Promise<{ status?: number; gasUsed?: bigint; gasPrice?: bigint } | null>;
   destroy?: () => void;
 };
 

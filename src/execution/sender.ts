@@ -3,13 +3,17 @@ import path from "path";
 import { Wallet, parseEther, parseUnits } from "ethers";
 import type { ExecutionConfig } from "../config";
 import type { RpcProviderClient } from "../rpc/manager";
+import { withTimeout } from "../rpc/safeCall";
 import {
   evaluateExecutionPolicy,
+  recordExecutionAttempt,
   readExecutionPolicyState,
   updateExecutionPolicyState,
 } from "./policy";
 import { simulateTransaction } from "./simulator";
 import { hasSufficientAllowance } from "./adapters/uniswapV3SwapRouter";
+import { reserveNextNonce } from "./nonceManager";
+import { clearPendingTx, recordPendingTx } from "./stuckTxGuard";
 import type { ExecutionPlan, ExecutionSendResult } from "./types";
 
 const EXECUTION_LOG_PATH = path.join("reports", "execution", "txlog.jsonl");
@@ -94,6 +98,7 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
   const policyState = readExecutionPolicyState(input.baseDir);
   const decision = evaluateExecutionPolicy(input.plan, input.config, policyState, {
     nowMs: now.getTime(),
+    baseDir: input.baseDir,
   });
 
   if (!decision.allowed) {
@@ -105,12 +110,15 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
     };
   }
 
+  recordExecutionAttempt(input.plan, "policy_allowed", input.baseDir, now);
+
   const simulation = await simulateTransaction(input.provider, input.plan, {
     timeoutMs: input.timeoutMs,
     retryMax: input.retryMax,
     retryBackoffMs: input.retryBackoffMs,
   });
   if (!simulation.ok) {
+    recordExecutionAttempt(input.plan, "sim_failed", input.baseDir);
     const updated = updateExecutionPolicyState(
       (current) => ({
         ...current,
@@ -133,9 +141,11 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
     };
   }
 
-  const wallet = new Wallet(input.config.PRIVATE_KEY, input.provider);
+  const wallet = new Wallet(input.config.PRIVATE_KEY, input.provider as never);
+  const reservedNonce = await reserveNextNonce(input.provider, input.plan.chainId, wallet.address, input.baseDir);
   const preapprovalResult = await ensurePreapprovedTokens(input.provider, wallet.address, input.plan);
   if (preapprovalResult) {
+    recordExecutionAttempt(input.plan, "preapproval_missing", input.baseDir);
     return preapprovalResult;
   }
 
@@ -152,9 +162,26 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
       value,
       gasPrice,
       gasLimit,
+      nonce: reservedNonce,
     });
-    const receipt = await response.wait(1);
+    recordPendingTx(
+      {
+        txHash: response.hash,
+        chainId: input.plan.chainId,
+        reportHash: input.plan.reportHash,
+        opportunityId: input.plan.opportunityId,
+        to: input.plan.to,
+        sentAtMs: Date.now(),
+      },
+      input.baseDir,
+    );
+    const receipt = await withTimeout(
+      response.wait(1),
+      Math.max(15_000, (input.timeoutMs ?? 8000) * 3),
+      "Execution receipt wait timed out",
+    );
     const sentAt = new Date().toISOString();
+    clearPendingTx(response.hash, input.baseDir);
     const effectiveGasPrice = receipt?.gasPrice ?? response.gasPrice ?? gasPrice;
     const gasUsed = receipt?.gasUsed ?? 0n;
     const gasCostEth = Number(gasUsed * effectiveGasPrice) / 1e18;
@@ -193,6 +220,11 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
       },
       input.baseDir,
     );
+    recordExecutionAttempt(
+      input.plan,
+      receipt?.status === 1 ? "sent" : "receipt_error",
+      input.baseDir,
+    );
 
     if (receipt?.status !== 1) {
       return {
@@ -210,6 +242,7 @@ export const executePlan = async (input: ExecutePlanInput): Promise<ExecutionSen
     };
   } catch (error) {
     const sanitized = sanitizeErrorMessage(error);
+    recordExecutionAttempt(input.plan, "send_error", input.baseDir);
     const updated = updateExecutionPolicyState(
       (current) => ({
         ...current,

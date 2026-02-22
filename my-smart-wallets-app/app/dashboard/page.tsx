@@ -29,6 +29,24 @@ type OperatorHealth = {
   lastExecutionReason: string | null;
   lastTradeAt: string | null;
   lastTxHash: string | null;
+  executionCaps?: {
+    approvalsEnabled: boolean;
+    approvalsMaxAmount: number;
+    maxTradeEth: number;
+    maxGasGwei: number;
+    maxSlippageBps: number;
+    minNetProfitEth: number;
+    dailyLossLimitEth: number;
+    cooldownSeconds: number;
+    replayWindowSeconds: number;
+    pendingTimeoutMinutes: number;
+  };
+  executionState?: {
+    dailyLossEth: number;
+    dailyLossRemainingEth: number;
+    pendingTxCount: number;
+    killSwitchActive: boolean;
+  };
 };
 
 type FeedHistoryResponse = {
@@ -221,6 +239,11 @@ export default function DashboardPage() {
             Local preference: <span className="font-medium">{activeProfile.name}</span>. Runtime scans still follow operator/CLI profile configuration.
           </p>
         )}
+        {health?.executionEnabled && (
+          <div className="rounded-md border border-amber-400/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            EXECUTION ENABLED: live transaction sending is active. Keep wallet balance limited and monitor kill switch status.
+          </div>
+        )}
 
         <ResponsiveGrid className="items-start">
           <Section
@@ -390,6 +413,14 @@ export default function DashboardPage() {
                 <p>reason: {health.lastExecutionReason ?? "None"}</p>
                 <p>lastTradeAt: {health.lastTradeAt ?? "Not available"}</p>
                 <p className="break-all">lastTxHash: {health.lastTxHash ?? "Not available"}</p>
+                <p>killSwitchActive: {String(health.executionState?.killSwitchActive ?? false)}</p>
+                <p>pendingTxCount: {health.executionState?.pendingTxCount ?? 0}</p>
+                <p>dailyLossRemainingEth: {(health.executionState?.dailyLossRemainingEth ?? 0).toFixed(6)}</p>
+                <p>maxTradeEth: {health.executionCaps?.maxTradeEth ?? 0}</p>
+                <p>maxGasGwei: {health.executionCaps?.maxGasGwei ?? 0}</p>
+                <p>maxSlippageBps: {health.executionCaps?.maxSlippageBps ?? 0}</p>
+                <p>dailyLossLimitEth: {health.executionCaps?.dailyLossLimitEth ?? 0}</p>
+                <p>cooldownSeconds: {health.executionCaps?.cooldownSeconds ?? 0}</p>
               </div>
             )}
           </Section>

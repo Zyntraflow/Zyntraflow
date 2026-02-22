@@ -22,6 +22,13 @@ export const simulateTransaction = async (
   plan: ExecutionPlan,
   options?: SimulateOptions,
 ): Promise<ExecutionSimulationResult> => {
+  if (typeof provider.call !== "function" || typeof provider.estimateGas !== "function") {
+    return {
+      ok: false,
+      error: "Provider does not support transaction simulation methods.",
+    };
+  }
+
   const timeoutMs = options?.timeoutMs ?? 8000;
   const retryMax = options?.retryMax ?? 2;
   const retryBackoffMs = options?.retryBackoffMs ?? 250;

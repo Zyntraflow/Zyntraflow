@@ -10,6 +10,7 @@
     "dev": "ts-node src/index.ts",
     "preoperator": "npm run bootstrap:env",
     "operator": "ts-node src/operator/operator.ts",
+    "approve:execution": "ts-node src/cli/approve.ts",
     "preflight": "ts-node src/security/preflight.ts",
     "gen:operator-signer": "ts-node scripts/generate-operator-signer.ts",
     "bootstrap:env": "ts-node scripts/bootstrap-local-env.ts",

@@ -31,6 +31,8 @@ import { buildStatusSnapshot } from "./reporting/statusSnapshot";
 import { buildUniswapV3ExecutionPlan } from "./execution/adapters/uniswapV3SwapRouter";
 import { executePlan } from "./execution/sender";
 import { readExecutionPolicyState } from "./execution/policy";
+import { checkForStuckPendingTransactions, type PendingExecutionTx } from "./execution/stuckTxGuard";
+import { buildExecutionStatusSnapshot, writeExecutionStatusSnapshot } from "./execution/status";
 import type { ExecutionPlan, ExecutionSendResult } from "./execution/types";
 import { loadRpcEndpoints } from "./rpc/endpoints";
 import { RpcManager, type RpcProviderClient } from "./rpc/manager";
@@ -159,6 +161,22 @@ const deriveExpectedPrice = (quoteInputs: Array<{ price: number }>): number => {
   }
   return Math.max(...prices);
 };
+
+const buildStuckTxAlert = (pending: PendingExecutionTx): AlertEvent => ({
+  ts: new Date().toISOString(),
+  userAddress: "0x0000000000000000000000000000000000000000",
+  reportHash: pending.reportHash,
+  chainId: pending.chainId,
+  pair: "EXECUTION/STUCK_TX",
+  netProfitEth: 0,
+  gasCostEth: 0,
+  slippagePercent: 0,
+  riskFlags: ["STUCK_TX_PENDING_TIMEOUT"],
+  score: -1,
+  mode: "free",
+  notes: [`pendingTxHash=${pending.txHash}`],
+  signedFreeSummaryUrl: "/api/feed/latest",
+});
 
 const main = async (): Promise<void> => {
   let rpcManager: RpcManager | null = null;
@@ -409,6 +427,24 @@ const main = async (): Promise<void> => {
 
     const reportHash = computeReportHash(scanReport);
     const executionPairLookup = buildPairLookup(scanTasks.map((task) => ({ chainId: task.chainId, pairs: task.pairs })));
+    const executionProvidersByChain = Object.fromEntries(
+      Object.entries(scanBestByChain).map(([chainId, details]) => [Number(chainId), details.provider]),
+    ) as Record<number, RpcProviderClient>;
+    const stuckTxResult = await checkForStuckPendingTransactions({
+      providersByChain: executionProvidersByChain,
+      pendingTimeoutMinutes: config.EXECUTION.PENDING_TIMEOUT_MINUTES,
+      killSwitchFile: config.EXECUTION.KILL_SWITCH_FILE,
+    });
+    const stuckTxAlert = stuckTxResult.triggered ? buildStuckTxAlert(stuckTxResult.stuck[0]) : null;
+    if (stuckTxResult.triggered) {
+      logger.warn(
+        {
+          pendingCount: stuckTxResult.pendingCount,
+          stuckTxHashes: stuckTxResult.stuck.map((entry) => entry.txHash),
+        },
+        "Execution kill switch activated due to stuck pending transaction",
+      );
+    }
     const executionState = readExecutionPolicyState();
     let executionPlan: ExecutionPlan | null = null;
     let executionResult: ExecutionSendResult = {
@@ -507,6 +543,11 @@ const main = async (): Promise<void> => {
     process.stdout.write(`Execution reason: ${executionResult.reason ?? "none"}\n`);
     process.stdout.write(`Execution tx hash: ${executionResult.txHash ?? "none"}\n`);
     process.stdout.write(`Execution last trade at: ${executionResult.lastTradeAt ?? "none"}\n`);
+    const executionStatus = buildExecutionStatusSnapshot(config.EXECUTION, executionResult);
+    const executionStatusPath = writeExecutionStatusSnapshot(executionStatus);
+    process.stdout.write(`Execution kill switch active: ${String(executionStatus.killSwitchActive)}\n`);
+    process.stdout.write(`Execution pending tx count: ${executionStatus.pendingTxCount}\n`);
+    process.stdout.write(`Execution daily loss remaining eth: ${executionStatus.dailyLossRemainingEth}\n`);
 
     const enrichedReport = premiumDecision.includeRicherReport
       ? {
@@ -704,10 +745,11 @@ const main = async (): Promise<void> => {
     const topAlert = alerts
       .slice()
       .sort((left, right) => right.score - left.score)[0] ?? null;
+    const channelAlert = stuckTxAlert ?? topAlert;
 
     if (operatorMode && config.ENABLE_DISCORD_ALERTS) {
       discordResult = await sendDiscordAlert({
-        event: topAlert,
+        event: channelAlert,
         enabled: true,
         botToken: config.DISCORD_BOT_TOKEN,
         channelId: config.DISCORD_CHANNEL_ID,
@@ -723,7 +765,7 @@ const main = async (): Promise<void> => {
 
     if (operatorMode && config.ENABLE_TELEGRAM_ALERTS) {
       telegramResult = await sendTelegramAlert({
-        event: topAlert,
+        event: channelAlert,
         enabled: true,
         botToken: config.TELEGRAM_BOT_TOKEN,
         chatId: config.TELEGRAM_CHAT_ID,
@@ -820,6 +862,11 @@ const main = async (): Promise<void> => {
           reason: executionResult.reason ?? null,
           lastTradeAt: executionResult.lastTradeAt ?? null,
           txHash: executionResult.txHash ?? null,
+          killSwitchActive: executionStatus.killSwitchActive,
+          pendingTxCount: executionStatus.pendingTxCount,
+          dailyLossRemainingEth: executionStatus.dailyLossRemainingEth,
+          replayWindowSeconds: executionStatus.replayWindowSeconds,
+          statusPath: executionStatusPath,
           plan: executionPlan
             ? {
                 chainId: executionPlan.chainId,

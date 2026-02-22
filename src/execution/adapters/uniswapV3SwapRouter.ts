@@ -98,7 +98,7 @@ export const hasSufficientAllowance = async (
   spender: string,
   requiredAmountWei: bigint,
 ): Promise<boolean> => {
-  const contract = new Contract(tokenAddress, ERC20_ALLOWANCE_ABI, provider);
+  const contract = new Contract(tokenAddress, ERC20_ALLOWANCE_ABI, provider as never);
   const allowance = (await contract.allowance(owner, spender)) as bigint;
   return allowance >= requiredAmountWei;
 };

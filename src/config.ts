@@ -8,12 +8,16 @@ export type ExecutionConfig = {
   ENABLED: boolean;
   CHAIN_ID: number;
   PRIVATE_KEY?: string;
+  APPROVALS_ENABLED: boolean;
+  APPROVALS_MAX_AMOUNT: number;
   MAX_TRADE_ETH: number;
   MAX_GAS_GWEI: number;
   MAX_SLIPPAGE_BPS: number;
   MIN_NET_PROFIT_ETH: number;
   DAILY_LOSS_LIMIT_ETH: number;
   COOLDOWN_SECONDS: number;
+  REPLAY_WINDOW_SECONDS: number;
+  PENDING_TIMEOUT_MINUTES: number;
   TO_ADDRESS_ALLOWLIST: string[];
   KILL_SWITCH_FILE: string;
 };
@@ -110,7 +114,8 @@ const parseBooleanEnv = (
     | "ENABLE_DISCORD_ALERTS"
     | "ENABLE_TELEGRAM_ALERTS"
     | "OPERATOR_ENABLE"
-    | "EXECUTION_ENABLED",
+    | "EXECUTION_ENABLED"
+    | "APPROVALS_ENABLED",
   fallback: boolean,
 ): boolean => {
   const value = process.env[name];
@@ -159,7 +164,9 @@ const parseIntegerEnvWithDefault = (
     | "TELEGRAM_ALERTS_MIN_INTERVAL_SECONDS"
     | "EXECUTION_CHAIN_ID"
     | "EXECUTION_MAX_SLIPPAGE_BPS"
-    | "EXECUTION_COOLDOWN_SECONDS",
+    | "EXECUTION_COOLDOWN_SECONDS"
+    | "EXECUTION_REPLAY_WINDOW_SECONDS"
+    | "EXECUTION_PENDING_TIMEOUT_MINUTES",
   defaultValue: number,
   options?: { min?: number },
 ): number => {
@@ -182,7 +189,8 @@ const parseDecimalEnvWithDefault = (
     | "EXECUTION_MAX_TRADE_ETH"
     | "EXECUTION_MAX_GAS_GWEI"
     | "EXECUTION_MIN_NET_PROFIT_ETH"
-    | "EXECUTION_DAILY_LOSS_LIMIT_ETH",
+    | "EXECUTION_DAILY_LOSS_LIMIT_ETH"
+    | "APPROVALS_MAX_AMOUNT",
   defaultValue: number,
   options?: { min?: number },
 ): number => {
@@ -443,12 +451,16 @@ export const loadConfig = (): AppConfig => {
       ENABLED: executionEnabled,
       CHAIN_ID: parseIntegerEnvWithDefault("EXECUTION_CHAIN_ID", 8453, { min: 1 }),
       PRIVATE_KEY: executionPrivateKey,
+      APPROVALS_ENABLED: parseBooleanEnv("APPROVALS_ENABLED", false),
+      APPROVALS_MAX_AMOUNT: parseDecimalEnvWithDefault("APPROVALS_MAX_AMOUNT", 0.05, { min: 0 }),
       MAX_TRADE_ETH: parseDecimalEnvWithDefault("EXECUTION_MAX_TRADE_ETH", 0.02, { min: 0 }),
       MAX_GAS_GWEI: parseDecimalEnvWithDefault("EXECUTION_MAX_GAS_GWEI", 5, { min: 0 }),
       MAX_SLIPPAGE_BPS: parseIntegerEnvWithDefault("EXECUTION_MAX_SLIPPAGE_BPS", 30, { min: 0 }),
       MIN_NET_PROFIT_ETH: parseDecimalEnvWithDefault("EXECUTION_MIN_NET_PROFIT_ETH", 0.002, { min: 0 }),
       DAILY_LOSS_LIMIT_ETH: parseDecimalEnvWithDefault("EXECUTION_DAILY_LOSS_LIMIT_ETH", 0.01, { min: 0 }),
       COOLDOWN_SECONDS: parseIntegerEnvWithDefault("EXECUTION_COOLDOWN_SECONDS", 30, { min: 0 }),
+      REPLAY_WINDOW_SECONDS: parseIntegerEnvWithDefault("EXECUTION_REPLAY_WINDOW_SECONDS", 3600, { min: 1 }),
+      PENDING_TIMEOUT_MINUTES: parseIntegerEnvWithDefault("EXECUTION_PENDING_TIMEOUT_MINUTES", 10, { min: 1 }),
       TO_ADDRESS_ALLOWLIST: parseExecutionAllowlist(),
       KILL_SWITCH_FILE: executionKillSwitchPath,
     },
