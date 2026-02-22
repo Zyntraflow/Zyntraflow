@@ -14,11 +14,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
-COPY package*.json ./
-COPY scripts/postinstall.js ./scripts/postinstall.js
-RUN npm ci --omit=dev
-COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.mjs ./next.config.mjs
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]

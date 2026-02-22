@@ -1,5 +1,4 @@
 import pino from "pino";
-import pretty from "pino-pretty";
 import { loadRuntimeConfig } from "./config";
 
 const runtime = loadRuntimeConfig();
@@ -89,10 +88,13 @@ const sanitizeValue = (value: unknown, seen: WeakSet<object>): unknown => {
 const destination =
   runtime.NODE_ENV === "production"
     ? undefined
-    : pretty({
-        colorize: true,
-        translateTime: "SYS:standard",
-        ignore: "pid,hostname",
+    : pino.transport({
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          translateTime: "SYS:standard",
+          ignore: "pid,hostname",
+        },
       });
 
 export const logger = pino(
